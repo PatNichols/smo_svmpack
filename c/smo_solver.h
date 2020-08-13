@@ -1,5 +1,5 @@
 #ifndef SMO_SOLVER_H
-#define SMO_SOLVER_H
+#ifndef SMO_SOLVER_H
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -25,11 +25,13 @@ typedef struct {
     int *status;
     double fun,bias,gap,cost,eps;
     int nvecs;
+#ifdef USE_TIMERS
     stopwatch_t * kmat_timer;
     stopwatch_t * gap_timer;
     stopwatch_t * step_timer;
     stopwatch_t * grad_timer;
     stopwatch_t * find_timer;
+#endif
 } smo_solver_t;
 
 struct  IndexPair {
@@ -50,6 +52,3 @@ void smo_solver_find_gap(smo_solver_t *smo);
 IndexPair * PairMax(IndexPair*,IndexPair*);
 IndexPair * PairMin(IndexPair*,IndexPair*);
 #endif
-
-
-
