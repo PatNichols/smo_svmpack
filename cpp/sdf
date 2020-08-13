@@ -1,0 +1,2 @@
+    double vsize = double(sizeof(double)* nvecs * nfeat) / 1048576.0;
+    double ksize = double(sizeof(double)* nvecs * csize)/1048576.0;

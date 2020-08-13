@@ -1,0 +1,18 @@
+        DoubleIndexPair mymax(-2.e300,-1LL);
+        DoubleIndexPair mymin( 2.e300,-1LL);
+#pragma omp declare reduction( MyDMax: DoubleIndexPair: omp_out.Max(omp_in)) \
+ initializer ( omp_priv=DoubleIndexPair(-2.e300,-1LL) )
+
+#pragma omp declare reduction( MyDMin: DoubleIndexPair: omp_out.Min(omp_in)) \
+ initializer ( omp_priv=DoubleIndexPair( 2.e300,-1LL) )
+
+       std::size_t k;
+#pragma omp parallel for shared(nvecs) private(k) reduction(MyDMax:mymax) reduction(MyDMin:mymin) schedule(static,500)
+        for ( k = 0; k < nvecs; ++k ) {
+            auto ys = y[k] * status[k];
+            if ( ys <= 0.0 ) mymax.Max(grad[k],k);
+            if ( ys >= 0.0 ) mymin.Min(grad[k],k);
+        }
+#ifdef USE_TIMERS
+        update_timer.stop();
+#endif

@@ -1,0 +1,9 @@
+    out.write((char*)&nsv,sizeof(int));
+    out.write((char*)&(opts.nfeat),sizeof(int));
+    out.write((char*)&(opts.ktype),sizeof(int));
+    out.write((char*)&(opts.kpow),sizeof(int));
+    out.write((char*)&(opts.kc1),sizeof(double));
+    out.write((char*)&(opts.kc2),sizeof(double));
+    out.write((char*)&(bias),sizeof(double));
+    itmp = opts.scale_kernel;
+    out.write((char*)&(itmp),sizeof(int));

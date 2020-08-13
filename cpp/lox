@@ -1,0 +1,194 @@
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/bin/x86_64-apple-darwin18-g++-9 -O3 -ffast-math -mavx2 -mtune=native -funroll-loops -std=c++17  -c utils.cpp
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/bin/x86_64-apple-darwin18-g++-9 -O3 -ffast-math -mavx2 -mtune=native -funroll-loops -std=c++17  -c svm_options.cpp
+In file included from svm_options.hpp:8,
+                 from svm_options.cpp:2:
+program_options.hpp:15:13: error: redefinition of 'void putils::ToUpper(std::string&)'
+   15 | inline void ToUpper(std::string& str) {
+      |             ^~~~~~~
+In file included from program_options.hpp:11,
+                 from svm_options.hpp:8,
+                 from svm_options.cpp:2:
+putils.hpp:13:13: note: 'void putils::ToUpper(std::string&)' previously defined here
+   13 | inline void ToUpper(std::string& s) {
+      |             ^~~~~~~
+In file included from svm_options.hpp:8,
+                 from svm_options.cpp:2:
+program_options.hpp: In member function 'void putils::program_options::parse_environment(const string&)':
+program_options.hpp:327:17: error: expected ',' or ';' before 'putils'
+  327 |                 putils::ToUpper(key);
+      |                 ^~~~~~
+In file included from svm_options.cpp:2:
+svm_options.hpp: In member function 'std::ostream& svm_options::write(std::ostream&)':
+svm_options.hpp:50:29: error: expected ';' before ')' token
+   50 |         os <<"svm options\n");
+      |                             ^
+      |                             ;
+svm_options.hpp:53:30: error: 'output' was not declared in this scope
+   53 |         os <<"output    = "<<output<<"\n";
+      |                              ^~~~~~
+svm_options.hpp: In function 'std::ostream& operator<<(std::ostream&, const svm_options&)':
+svm_options.hpp:78:25: error: passing 'const svm_options' as 'this' argument discards qualifiers [-fpermissive]
+   78 |     return opts.write(os);
+      |                         ^
+svm_options.hpp:44:19: note:   in call to 'std::ostream& svm_options::write(std::ostream&)'
+   44 |     std::ostream& write(std::ostream& os) {
+      |                   ^~~~~
+svm_options.cpp: At global scope:
+svm_options.cpp:4:13: error: no declaration matches 'void svm_options::read_libsvm_data_file()'
+    4 | inline void svm_options::read_libsvm_data_file()
+      |             ^~~~~~~~~~~
+svm_options.cpp:4:13: note: no functions named 'void svm_options::read_libsvm_data_file()'
+In file included from svm_options.cpp:2:
+svm_options.hpp:10:8: note: 'struct svm_options' defined here
+   10 | struct svm_options {
+      |        ^~~~~~~~~~~
+svm_options.cpp: In member function 'void svm_options::read_tdo_data_file()':
+svm_options.cpp:90:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+   90 |     in.read((void*)&nvecs,sizeof(int));
+      |             ^~~~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:91:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+   91 |     in.read((void*)&nfeat,sizeof(int));
+      |             ^~~~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:94:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+   94 |     in.read((void *)y,nvecs*sizeof(double));
+      |             ^~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:95:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+   95 |     in.read((void *)vecs,nvecs*nfeat*sizeof(double));
+      |             ^~~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp: In member function 'void svm_options::read_model_file()':
+svm_options.cpp:107:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+  107 |     in.read((void*)&nvecs,1*sizeof(int));
+      |             ^~~~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:108:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+  108 |     in.read((void*)&nfeat,1*sizeof(int));
+      |             ^~~~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:109:22: error: 'opts' was not declared in this scope
+  109 |     in.read((void*)&(opts->ktype),1*sizeof(int));
+      |                      ^~~~
+svm_options.cpp:116:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+  116 |     in.read((void*)y,nvecs*sizeof(double));
+      |             ^~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp:117:13: error: invalid conversion from 'void*' to 'std::basic_istream<char>::char_type*' {aka 'char*'} [-fpermissive]
+  117 |     in.read((void*)vecs,nvecs*nfeat*sizeof(double));
+      |             ^~~~~~~~~~~
+      |             |
+      |             void*
+In file included from /Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:40,
+                 from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/istream:486:23: note:   initializing argument 1 of 'std::basic_istream<_CharT, _Traits>& std::basic_istream<_CharT, _Traits>::read(std::basic_istream<_CharT, _Traits>::char_type*, std::streamsize) [with _CharT = char; _Traits = std::char_traits<char>; std::basic_istream<_CharT, _Traits>::char_type = char; std::streamsize = long int]'
+  486 |       read(char_type* __s, streamsize __n);
+      |            ~~~~~~~~~~~^~~
+svm_options.cpp: In member function 'void svm_options::read_data_file()':
+svm_options.cpp:123:9: error: 'read_libsvm_data_file' was not declared in this scope; did you mean 'read_tdo_data_file'?
+  123 |         read_libsvm_data_file();
+      |         ^~~~~~~~~~~~~~~~~~~~~
+      |         read_tdo_data_file
+svm_options.cpp: In constructor 'svm_options::svm_options(int, char**)':
+svm_options.cpp:133:5: error: 'program_options_t' was not declared in this scope
+  133 |     program_options_t popts;
+      |     ^~~~~~~~~~~~~~~~~
+svm_options.cpp:135:5: error: 'popts' was not declared in this scope
+  135 |     popts.insert("data","input data file","svm.in");
+      |     ^~~~~
+svm_options.cpp:171:18: error: request for member 'compare' in 'task_str', which is of non-class type 'char*'
+  171 |     if (task_str.compare("train")==0) {
+      |                  ^~~~~~~
+svm_options.cpp:173:24: error: 'opts' was not declared in this scope
+  173 |         read_data_file(opts);
+      |                        ^~~~
+svm_options.cpp:178:22: error: request for member 'compare' in 'task_str', which is of non-class type 'char*'
+  178 |         if (task_str.compare("classify")==0) {
+      |                      ^~~~~~~
+svm_options.cpp:180:29: error: 'opts' was not declared in this scope
+  180 |             read_model_file(opts);
+      |                             ^~~~
+svm_options.cpp:182:26: error: request for member 'compare' in 'task_str', which is of non-class type 'char*'
+  182 |             if (task_str.compare("translate")==0) {
+      |                          ^~~~~~~
+svm_options.cpp:190:9: error: 'cerr' was not declared in this scope; did you mean 'std::cerr'?
+  190 |     std:cerr << "svm options are:\n";
+      |         ^~~~
+      |         std::cerr
+In file included from utils.hpp:11,
+                 from svm_options.hpp:7,
+                 from svm_options.cpp:2:
+/Users/pnichols/homebrew/Cellar/gcc/9.3.0_1/include/c++/9.3.0/iostream:62:18: note: 'std::cerr' declared here
+   62 |   extern ostream cerr;  /// Linked to standard error (unbuffered)
+      |                  ^~~~
+svm_options.cpp: At global scope:
+svm_options.cpp:195:6: error: no declaration matches 'void svm_options::write(FILE*)'
+  195 | void svm_options::write(FILE *fp)
+      |      ^~~~~~~~~~~
+In file included from svm_options.cpp:2:
+svm_options.hpp:44:19: note: candidate is: 'std::ostream& svm_options::write(std::ostream&)'
+   44 |     std::ostream& write(std::ostream& os) {
+      |                   ^~~~~
+svm_options.hpp:10:8: note: 'struct svm_options' defined here
+   10 | struct svm_options {
+      |        ^~~~~~~~~~~
+make: *** [all] Error 1

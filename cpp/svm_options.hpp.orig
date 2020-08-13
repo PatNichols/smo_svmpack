@@ -1,0 +1,73 @@
+#ifndef SVM_OPTIONS_H
+#define SVM_OPTIONS_H
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
+#include <cstring>
+#include "utils.hpp"
+#include "program_options.hpp"
+
+svm_options {
+    double *vecs;
+    double *y;
+    double bias;
+    double eps;
+    double cost;
+    double kc1;
+    double kc2;
+    int csize;
+    int kpow;
+    int ktype;
+    int nvecs;
+    int nfeat;
+    int max_its;
+    int task;
+    int scale_kernel;
+    int nths;
+    std::string out;
+    std::string model;
+    std::string data;
+
+    svm_options(int argc,char **argv);
+    ~svm_options() {
+        delete [] vecs;
+        delete [] y;
+    }
+    void read_tdo_data_file();
+    void read_model_file();
+    void read_data_file();
+    void svm_options_write(FILE *fp);
+    std::ostream& write(std::ostream& os) {
+    size_t vecs_size = nvecs;
+    size_t kmat_size = csize;
+
+    double vsize = (sizeof(double)*vecs_size * nfeat) / 1048576.0;
+    double ksize = (sizeof(double)*vecs_size * kmat_size)/1048576.0;
+    os <<"svm options\n");
+    os <<"data file = "<<data<<"\n";
+    os <<"model file= "<<model<<"\n";
+    os <<"output    = "<<output<<"\n";
+    os <<"# vectors  = "<< nvecs << "\n";
+    os <<"# features = "<< nfeat<< "\n";
+    os <<"# threads  = "<< nths << "\n";
+    os <<"scale kernel= "<<scale_kernel << "\n";
+    os <<"kernel type = "<< ktype << "\n";
+    os <<"kernel pow  = "<<kpow << "\n";
+    os <<"kernel c1   = "<<kc1 << "\n";
+    os <<"kernel c2   = "<<kc2 << "\n";
+    os <<"task        = "<<task << "\n";
+    if (!(task)) {
+        os <<"cache size  = "<<csize << "\n";
+        os <<"eps         = "<<eps << "\n";
+        os <<"cost        = "<<cost << "\n";
+        os <<"maxits      = "<<max_its << "\n";
+    } else {
+        os <<"bias        = "<<bias << "\n";
+    }
+    os << "vecs size   = "<<vsize <<" MB\n";
+    os << "kmat size   = "<<ksize <<" MB\n";
+    return os;
+    }
+};
+
+#endif
