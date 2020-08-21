@@ -119,7 +119,7 @@ struct svm_kernel_eval {
             }
             return;
         case 2:
-#pragma omp parallel for private(i,t,sum,v2,v1) schedule(static,1000)
+#pragma omp parallel for private(i,t,sum,v2,v1)
             for (i=0; i<nvecs; ++i) {
                 v1 = vecs + irow*nfeat;
                 v2 = vecs + i*nfeat;
@@ -192,8 +192,8 @@ struct svm_kernel_matrix {
         if (ifnd>=0) {
             *R = cache_rows+ifnd*nvecs;
         }else{
+            keval.eval(cache_rows+last*nvecs,irow);
             *R = cache_rows + last * nvecs;
-            keval.eval(*R,irow);
             cache_index[last] = irow;
             last = (last + 1) % csize;
         }
@@ -202,7 +202,7 @@ struct svm_kernel_matrix {
     inline void get_row(int imax,int imin,double **rmax,double **rmin) {
         int i;
 
-        if (csize == 0) {
+        if (csize == nvecs) {
             *rmax = cache_rows + imax * nvecs;
             *rmin = cache_rows + imin * nvecs;
             return;
@@ -210,27 +210,25 @@ struct svm_kernel_matrix {
 
         int imax_fnd = -1;
         int imin_fnd = -1;
-#pragma omp parallel for private(i) shared(cache_index) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,1000)
+#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,500)
         for (i=0; i<csize; ++i) {
             if (imax==cache_index[i]) imax_fnd = i;
             if (imin==cache_index[i]) imin_fnd = i;
         }
-//        std::cerr << "  --- " << imax_fnd << " " << imin_fnd << "\n";
         if (imax_fnd!=-1) {
             *rmax = cache_rows+imax_fnd*nvecs;
-//            std::cerr << "found max " << imax_fnd << "\n";
         } else {
-//            std::cerr << "last = " << last << "\n";
+            if (last==imin_fnd) last=(last+1)%csize;
             keval.eval(cache_rows+last*nvecs,imax);
             *rmax = cache_rows + last * nvecs;
             cache_index[last] = imax;
+            imax_fnd = last;
             last = (last + 1) % csize;
         }
         if (imin_fnd!=-1) {
             *rmin = cache_rows+imin_fnd*nvecs;
-//            std::cerr << "found min " << imin_fnd << "\n";
         } else {
-//            std::cerr << "last = " << last << "\n";
+            if (last==imax_fnd) last=(last+1)%csize;
             keval.eval(cache_rows+last*nvecs,imin);
             *rmin = cache_rows + last * nvecs;
             cache_index[last] = imin;

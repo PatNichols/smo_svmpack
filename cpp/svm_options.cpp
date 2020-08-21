@@ -215,11 +215,14 @@ svm_options::svm_options(int argc,char **argv)
     std::cerr << "task string = " << task_str << "\n";
     task = 0;
     if (task_str.compare("train")==0) {
+        read_data_file();
         if (csize==-1) csize = nvecs/6;
         if (csize==0) csize = nvecs;
-        if (max_its==0) max_its = nvecs;
+        if (max_its==0) {
+            std::cerr << "resetting maxits to default " << nvecs << "\n";
+            max_its = nvecs;
+        }
         task=0;
-        read_data_file();
     } else {
         if (task_str.compare("classify")==0) {
             task=1;
