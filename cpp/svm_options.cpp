@@ -6,12 +6,13 @@ inline void svm_options::write_libsvm_file(std::string& new_name) {
     const double tau = 2.e-14;
     std::ofstream out;
     out.open(new_name.c_str());
-    for (i=0;i<nvecs;++i) {
-        out << " " << y[i];
-        for (j=0;j<nfeat;++j) {
+    for (i=0; i<nvecs; ++i) {
+        int iy = (int)y[i];
+        out << " " << iy;
+        for (j=0; j<nfeat; ++j) {
             if (vecs[j+i*nfeat]>tau) {
                 out << " " << (j+1) << ":" << vecs[j+i*nfeat];
-            } 
+            }
         }
         out << "\n";
     }
@@ -64,8 +65,8 @@ inline void svm_options::read_libsvm_data_file() noexcept
             }
             ++nvecs;
         } else {
-            std::cerr << "read libsvm_data_file error on line " << (nvecs+1) << "\n"; 
-            exit(EXIT_FAILURE);        
+            std::cerr << "read libsvm_data_file error on line " << (nvecs+1) << "\n";
+            exit(EXIT_FAILURE);
         }
         if (in.eof()) break;
     }
@@ -94,8 +95,8 @@ inline void svm_options::read_libsvm_data_file() noexcept
             }
             ++ivec;
         } else {
-            std::cerr << "read libsvm_data_file error on line " << (nvecs+1) << "\n"; 
-            exit(EXIT_FAILURE);        
+            std::cerr << "read libsvm_data_file error on line " << (nvecs+1) << "\n";
+            exit(EXIT_FAILURE);
         }
         if (in.eof()) break;
     }
@@ -112,7 +113,7 @@ inline void svm_options::read_tdo_data_file() noexcept
     in.open(data.c_str());
     if (!in) {
         std::cerr << "could not open " << data << "\n";
-    }    
+    }
     in.read((char*)&nvecs,sizeof(int));
     in.read((char*)&nfeat,sizeof(int));
     vecs = new double[nvecs*nfeat];
@@ -129,7 +130,7 @@ inline void svm_options::read_model_file() noexcept
     in.open(model.c_str());
     if (!in) {
         std::cerr << "could not open " << model << "\n";
-    }    
+    }
     in.read((char*)&nvecs,sizeof(int));
     in.read((char*)&nfeat,sizeof(int));
     in.read((char*)&ktype,sizeof(int));
@@ -137,7 +138,9 @@ inline void svm_options::read_model_file() noexcept
     in.read((char*)&kc1,sizeof(double));
     in.read((char*)&kc2,sizeof(double));
     in.read((char*)&bias,sizeof(double));
-    in.read((char*)&(scale_kernel),sizeof(int));
+    int itmp;
+    in.read((char*)&(itmp),sizeof(int));
+    scale_kernel = (itmp>0) ? 1:0;
     vecs = new double[nvecs*nfeat];
     y = new double[nvecs];
     in.read((char*)y,nvecs*sizeof(double));
@@ -146,10 +149,10 @@ inline void svm_options::read_model_file() noexcept
     std::cerr << "# model vectors = " << nvecs << "\n";
     std::cerr << "# model features= " << nfeat << "\n";
     std::cerr << "model kernel function = " << ktype << "\n";
-    std::cerr << "      parameters " << ktype << " " << kc1 << " " << kc2 << "\n"; 
+    std::cerr << "      parameters " << ktype << " " << kc1 << " " << kc2 << "\n";
     std::cerr << "bias = " << bias << "\n";
     std::cerr << "scale kernel = " << scale_kernel << "\n";
-}	
+}
 
 inline void svm_options::read_data_file() noexcept {
     if ( data.find(".tdo")==std::string::npos) {
@@ -197,7 +200,7 @@ svm_options::svm_options(int argc,char **argv)
     popts.parse_command_line(argc,argv);
     if (popts.has_value("config"))
         popts.parse_config_file(popts.get_value("config"));
-        
+
     data = popts.get_value("data");
     model = popts.get_value("model");
     out = popts.get_value("out");
@@ -218,16 +221,11 @@ svm_options::svm_options(int argc,char **argv)
         read_data_file();
         if (csize==-1) csize = nvecs/6;
         if (csize==0) csize = nvecs;
-        if (max_its==0) {
-            std::cerr << "resetting maxits to default " << nvecs << "\n";
-            max_its = nvecs;
-        }
+        if (max_its==0) max_its = nvecs;
         task=0;
     } else {
         if (task_str.compare("classify")==0) {
             task=1;
-            this->read_model_file();
-            std::cerr << "read model file\n";
         } else {
             if (task_str.compare("translate")==0) {
                 task=2;
@@ -237,7 +235,6 @@ svm_options::svm_options(int argc,char **argv)
             }
         }
     }
-    std::cerr << "nfeat = " << nfeat << "\n";
     std::cerr << "svm options are:\n";
     write_file(stderr);
 }
@@ -251,9 +248,9 @@ void svm_options::write_file(FILE *fp) const noexcept {
     fprintf(fp,"model file= %s\n",model.c_str());
     fprintf(fp,"output    = %s\n",out.c_str());
     fprintf(fp,"nthreads  = %d\n",nths);
+    if (task!=1) {
     fprintf(fp,"# vectors  = %d \n",nvecs);
     fprintf(fp,"# features = %d \n",nfeat);
-    fprintf(fp,"# threads  = %d \n",nths);
     fprintf(fp,"scale kernel= %d\n",scale_kernel);
     fprintf(fp,"kernel type = %d\n",ktype);
     fprintf(fp,"kernel pow  = %d\n",kpow);
@@ -267,9 +264,7 @@ void svm_options::write_file(FILE *fp) const noexcept {
         fprintf(fp,"maxits      = %d\n",max_its);
         fprintf(stderr,"kmat size   = %le MB\n",ksize);
         fprintf(stderr,"vecs size   = %le MB\n",vsize);
-    } else {
-        fprintf(fp,"bias        = %lf \n",bias);
-        fprintf(stderr,"vecs size   = %le MB\n",vsize);
+    } 
     }
     return;
 }

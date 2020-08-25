@@ -29,21 +29,21 @@ struct svm_options {
     std::string data;
 
     svm_options(int argc,char **argv);
-    
+
     ~svm_options() {
         delete [] vecs;
         delete [] y;
     }
-    
+
     void read_libsvm_data_file() noexcept;
     void read_tdo_data_file() noexcept;
     void read_model_file() noexcept;
     void read_data_file() noexcept;
     void write_tdo_file(std::string&);
     void write_libsvm_file(std::string&);
-    void translate();    
+    void translate();
     void write_file(FILE *fp) const noexcept;
-    
+
     std::ostream& write(std::ostream& os) const noexcept {
         double vsize = double(sizeof(double)* nvecs * nfeat)/1048576.0;
         double ksize = double(sizeof(double)* nvecs * csize)/1048576.0;
@@ -61,12 +61,13 @@ struct svm_options {
         os <<"kernel c1   = "<<kc1 << "\n";
         os <<"kernel c2   = "<<kc2 << "\n";
         os <<"task        = "<<task << "\n";
-        if (!(task)) {
+        if (task==0) {
             os <<"cache size  = "<<csize << "\n";
             os <<"eps         = "<<eps << "\n";
             os <<"cost        = "<<cost << "\n";
             os <<"maxits      = "<<max_its << "\n";
-        } else {
+        } 
+        if (task==1) {
             os <<"bias        = "<<bias << "\n";
         }
         os << "vecs size   = "<<vsize <<" MB\n";

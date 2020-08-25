@@ -1,6 +1,6 @@
 #ifndef SVM_KERNEL_MATRIX_HPP
 #define SVM_KERNEL_MATRIX_HPP
-
+#include "stopwatch.hpp"
 #include "svm_options.hpp"
 
 struct svm_kernel_eval {
@@ -56,7 +56,7 @@ struct svm_kernel_eval {
                 }
                 break;
             case 2:
-#pragma omp parallel for private(i) schedule(static,1000)
+#pragma omp parallel for private(i) schedule(static,512)
                 for (i=0; i<nvecs; ++i) {
                     scale[i]=1.0;
                 }
@@ -95,12 +95,13 @@ struct svm_kernel_eval {
         int i,j;
         double sum,t;
         double s1= scale[irow];
-        const double *v1 = vecs + irow * nfeat;
+        const double *v1;
         const double *v2;
         switch (ktype) {
         case 0:
-#pragma omp parallel for private(i,j,sum,v2)
+#pragma omp parallel for private(i,j,sum,v2,v1)
             for (i=0; i<nvecs; ++i) {
+                v1 = vecs + irow*nfeat;
                 v2 = vecs + i * nfeat;
                 sum =  0.;
                 for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
@@ -108,8 +109,9 @@ struct svm_kernel_eval {
             }
             return;
         case 1:
-#pragma omp parallel for private(i,j,sum,v2)
+#pragma omp parallel for private(i,j,sum,v2,v1)
             for (i=0; i<nvecs; ++i) {
+                v1 = vecs + irow*nfeat;
                 v2 = vecs + i * nfeat;
                 sum =  0.;
                 for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
@@ -119,7 +121,7 @@ struct svm_kernel_eval {
             }
             return;
         case 2:
-#pragma omp parallel for private(i,t,sum,v2,v1)
+#pragma omp parallel for private(i,t,sum,v2,v1) schedule(static,512)
             for (i=0; i<nvecs; ++i) {
                 v1 = vecs + irow*nfeat;
                 v2 = vecs + i*nfeat;
@@ -132,8 +134,9 @@ struct svm_kernel_eval {
             }
             return;
         case 3:
-#pragma omp parallel for private(i,j,sum,v2)
+#pragma omp parallel for private(i,j,sum,v1,v2)
             for (i=0; i<nvecs; ++i) {
+                v1 = vecs + irow*nfeat;
                 v2 = vecs + i * nfeat;
                 sum =  0.;
                 for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
@@ -164,12 +167,13 @@ struct svm_kernel_matrix {
             csize = nvecs/6;
         }
         if (csize==0) {
-            csize = nvecs;
-            cache_rows = new double[csize*nvecs];
-            cache_index = new int[csize];
-            for (i=0; i<csize; ++i) cache_index[i]=i;
-#pragma omp parallel for private(i) schedule(static,1000)
+            cache_rows = new double[nvecs*nvecs];
+            stopwatch stimer;
+            stimer.clear();
+#pragma omp parallel for private(i) //schedule(static,512)
             for (i=0; i<nvecs; ++i) keval.eval(cache_rows+i*nvecs,i);
+            stimer.stop();
+            std::cerr << "time to compute whole kernel matrix is : " << stimer.time() << "\n";
         } else {
             cache_rows = new double[csize*nvecs];
             cache_index = new int[csize];
@@ -183,6 +187,10 @@ struct svm_kernel_matrix {
         delete [] cache_rows;
     }
     void get_row(int irow,double **R) {
+        if (csize==0) {
+            *R = cache_rows+irow*nvecs;
+            return;
+        }
         int i;
         int ifnd = -1;
 #pragma omp parallel for private(i) reduction(max:ifnd)
@@ -191,9 +199,9 @@ struct svm_kernel_matrix {
         }
         if (ifnd>=0) {
             *R = cache_rows+ifnd*nvecs;
-        }else{
-            keval.eval(cache_rows+last*nvecs,irow);
+        } else {
             *R = cache_rows + last * nvecs;
+            keval.eval(*R,irow);
             cache_index[last] = irow;
             last = (last + 1) % csize;
         }
@@ -202,15 +210,14 @@ struct svm_kernel_matrix {
     inline void get_row(int imax,int imin,double **rmax,double **rmin) {
         int i;
 
-        if (csize == nvecs) {
+        if (csize == 0) {
             *rmax = cache_rows + imax * nvecs;
             *rmin = cache_rows + imin * nvecs;
             return;
         }
-
         int imax_fnd = -1;
         int imin_fnd = -1;
-#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,500)
+#pragma omp parallel for private(i) shared(cache_index) reduction(max:imax_fnd) reduction(max:imin_fnd) // schedule(static,512)
         for (i=0; i<csize; ++i) {
             if (imax==cache_index[i]) imax_fnd = i;
             if (imin==cache_index[i]) imin_fnd = i;
@@ -218,16 +225,18 @@ struct svm_kernel_matrix {
         if (imax_fnd!=-1) {
             *rmax = cache_rows+imax_fnd*nvecs;
         } else {
-            if (last==imin_fnd) last=(last+1)%csize;
+            // the next line is needed to prevent an overwrite if last==imin_fnd 
+            if (last == imin_fnd) last = (last + 1)%csize;
+            imax_fnd = last;
             keval.eval(cache_rows+last*nvecs,imax);
             *rmax = cache_rows + last * nvecs;
             cache_index[last] = imax;
-            imax_fnd = last;
             last = (last + 1) % csize;
         }
         if (imin_fnd!=-1) {
             *rmin = cache_rows+imin_fnd*nvecs;
         } else {
+            // the next line is needed to prevent an overwrite if last==imax_fnd 
             if (last==imax_fnd) last=(last+1)%csize;
             keval.eval(cache_rows+last*nvecs,imin);
             *rmin = cache_rows + last * nvecs;
