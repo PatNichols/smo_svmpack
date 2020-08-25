@@ -414,10 +414,18 @@ void smo_solver_output_model_file(smo_solver_t *smo, svm_options_t *opts) {
     fwrite(&(opts->kc2),1,sizeof(double),out);
     fwrite(&(smo->bias),1,sizeof(double),out);
     fwrite(&(opts->scale_kernel),1,sizeof(int),out);
-    for ( k = 0; k < nvecs; ++k ) {
-        if ( smo->status[k] < 0 ) continue;
-        dtmp = y[k] * scal[k] * alpha[k];
-        fwrite(&dtmp,1,sizeof(double),out);
+    if (opts->ktype == 2 || opts->scale_kernel==0) {
+        for ( k = 0; k < nvecs; ++k ) {
+            if ( smo->status[k] < 0 ) continue;
+            dtmp = y[k] * alpha[k];
+            fwrite(&dtmp,1,sizeof(double),out);
+        }    
+    }else{
+        for ( k = 0; k < nvecs; ++k ) {
+            if ( smo->status[k] < 0 ) continue;
+            dtmp = y[k] * scal[k] * alpha[k];
+            fwrite(&dtmp,1,sizeof(double),out);
+        }
     }
     for ( k = 0; k < nvecs ; ++k) {
         if (smo->status[k]<0) continue;
@@ -426,7 +434,20 @@ void smo_solver_output_model_file(smo_solver_t *smo, svm_options_t *opts) {
     }
     fclose(out);
     fprintf(stderr,"wrote model file\n");
-    out2 = Fopen(opts->out,"w");
+#ifdef _OPENMP
+#pragma omp parallel for private (k,fx) reduction(+:ntp) reduction(+:nfp) reduction(+:ntn) reduction(+:nfn)
+    for ( k = 0; k < nvecs; ++k ) {
+        fx = ( smo->y[k] - smo->grad[k] - smo->bias );
+        if ( fx > 0 ) {
+            if ( smo->y[k] > 0. ) ++ntp;
+            else ++nfp;
+        } else {
+            if ( smo->y[k] > 0. ) ++ntn;
+            else ++nfn;
+        }
+    }
+#else
+    out2 = Fopen(opts->out,"w");    
     for ( k = 0; k < nvecs; ++k ) {
         fx = ( smo->y[k] - smo->grad[k] - smo->bias );
         if ( fx > 0 ) {
@@ -441,5 +462,6 @@ void smo_solver_output_model_file(smo_solver_t *smo, svm_options_t *opts) {
         fwrite(&fx,1,sizeof(double),out2);
     }
     fclose(out2);
+#endif
     analyze ( ntp, ntn, nfp, nfn );
 }

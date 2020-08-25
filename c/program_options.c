@@ -153,7 +153,7 @@ inline void program_options_parse_command_line(program_options_t *opts,int argc,
     char *key;
     char *val;
     char * key_s;
-
+    char * eq_ptr;
     int eq_pos,pos,k,slen;
 
     opts->prog = strdup(argv[0]);
@@ -168,8 +168,8 @@ inline void program_options_parse_command_line(program_options_t *opts,int argc,
             pos = (key_s[1]=='-') ? 2:1;
             key_s = key_s  + pos;
             if (strcmp(key_s,"help")==0) program_options_print_help(opts);
-            eq_pos = find_first_of(key_s,"=",0);
-            if (eq_pos==-1) {
+            eq_ptr = strstr(key_s,"=");
+            if (eq_ptr == 0x0) {
                 if (i!=(argc-1)) {
                     if (argv[i+1][0]=='-') {
                         program_options_set_value(opts,key_s,"true");
@@ -180,7 +180,8 @@ inline void program_options_parse_command_line(program_options_t *opts,int argc,
                 } else {
                     program_options_set_value(opts,key_s,"true");
                 }
-            } else {
+            }else{
+                eq_pos = eq_ptr - key_s;
                 key = strndup(key_s,eq_pos);
                 val = strdup(key_s+eq_pos + 1);
                 program_options_set_value(opts,key,val);

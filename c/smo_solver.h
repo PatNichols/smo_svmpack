@@ -1,5 +1,5 @@
 #ifndef SMO_SOLVER_H
-#ifndef SMO_SOLVER_H
+#define SMO_SOLVER_H
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
