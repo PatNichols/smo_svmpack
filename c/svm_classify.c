@@ -148,7 +148,7 @@ void svm_classify(svm_options_t *opts)
     }
 #else
     vecs = (double*)Malloc(sizeof(double)*nfeat*nvecs);
-    Fread(vecs,nvecs*nfeat,sizeof(double),fp);
+    fread(vecs,nvecs*nfeat,sizeof(double),fp);
     for (i=0; i<nvecs; ++i) {
         vp = vecs + i * nfeat;
         fx = svm_kfun_gensum(kfun,vp,kscale) - bias;

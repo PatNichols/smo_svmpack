@@ -31,6 +31,8 @@ void svm_classify(svm_options& opts)
     in.read((char*)&nfeat,sizeof(int));
     y  = new double[nvecs];
     in.read((char*)y,nvecs*sizeof(double));
+    in.read((char*)vecs,nvecs*nfeat*sizeof(double));
+    in.close();
     p = in.tellg();
     std::cerr << "Reading Data file\n";
     std::cerr << "# vecs = " << nvecs << " # features= " << nfeat << "\n";
@@ -55,7 +57,6 @@ void svm_classify(svm_options& opts)
             sz = nsz;
             off = sz*tid + xsz;
         }
-        p = sizeof(int)*2 + sizeof(double)*(nvecs + off * nfeat);
         svm_eval kfun(opts);
         inx.open(opts.data.c_str());
         inx.seekg(p);
