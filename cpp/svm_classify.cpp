@@ -1,102 +1,107 @@
 
 #include "svm_classify.hpp"
+#define MAX_NTHDS 64
 
-#ifdef _OPENMP
-#include "omp.h"
-#endif
-
-void svm_classify(svm_options& opts)
+void svm_classify(svm_options& options)
 {
-    std::string data(opts.data);
-    int nvecs,nfeat,i,j,tid,nth;
-    int nsz,sz,xsz,off;
-    double *y;
+    stopwatch ctimer;
+    ctimer.clear();
+    ctimer.start();
+    const double *vp;
+    int i;
     double fx;
-    size_t p;
-    int ntp,nfp,ntn,nfn;
-    double *vp;
-    const double  bias = opts.bias;
-    std::ifstream in;
-    std::ofstream out;
-    
-    std::string new_name;
-    if (data.find(".tdo")==std::string::npos) {
-        new_name = opts.data + ".tdo";
-        opts.translate();
-    }else{
-        new_name = opts.data;
-    }
-    in.open(new_name.c_str());
-    in.read((char*)&nvecs,sizeof(int));
-    in.read((char*)&nfeat,sizeof(int));
-    y  = new double[nvecs];
-    in.read((char*)y,nvecs*sizeof(double));
-    in.read((char*)vecs,nvecs*nfeat*sizeof(double));
-    in.close();
-    p = in.tellg();
-    std::cerr << "Reading Data file\n";
-    std::cerr << "# vecs = " << nvecs << " # features= " << nfeat << "\n";
-    ntp = 0;
-    nfp = 0;
-    ntn = 0;
-    nfn = 0;        
+    svm_data data(options.data);
+    const double *vecs = data.vecs;
+    const double *y = data.y;
+    int ntp=0;
+    int nfp=0;
+    int ntn=0;
+    int nfn=0;
+    int nth=0;
 #ifdef _OPENMP
-    in.close();
-    std::ifstream inx;
-#pragma omp parallel private(inx,tid,nsz,xsz,sz,off,p,i,j,vp,fx) shared(y,nvecs,opts)\
-    reduction(+:ntp) reduction(+:nfp) reduction(+:nfn) reduction(+:ntn)
+    int tid,xsz,sz0,sz,j;
+    int fp,fn,tp,tn;
+    int narr[MAX_NTHDS][4];
+    int nth_i[1];
+
+#pragma omp parallel private(tid,nth,xsz,sz,j,i,vp,fx,fp,fn,tp,tn) shared(narr,nth_i,vecs,y)
     {
+        svm_model model(options.model);
         tid = omp_get_thread_num();
         nth = omp_get_num_threads();
-        nsz = nvecs/nth;
-        xsz = nvecs%nth;
+        if (tid==0) nth_i[0]=nth;
+        std::string my_file = options.out + "." + std::to_string(tid);
+        std::ofstream out(my_file.c_str());
+        xsz = data.nvecs % nth;
+        sz = data.nvecs / nth;
         if (tid < xsz) {
-            sz = nsz+1;
-            off = sz*tid;
-        }else{
-            sz = nsz;
-            off = sz*tid + xsz;
+            sz += 1;
+            j = sz*tid;
+        } else {
+            j = sz*tid + xsz;
         }
-        svm_eval kfun(opts);
-        inx.open(opts.data.c_str());
-        inx.seekg(p);
-        double *vecs = new double[sz*nfeat];
-        inx.read((char*)vecs,sizeof(double)*nfeat*sz);
-        inx.close();
-        j = off;
+        tp = 0;
+        tn = 0;
+        fp = 0;
+        fn = 0;
         for (i=0; i<sz; ++i,++j) {
-            vp = vecs + i * nfeat;
-            fx = kfun.gensum(vp)- bias;
+            vp = vecs + j * data.nfeat;
+            fx = model.gensum(vecs+j*data.nfeat);
             if (fx > 0.) {
-                if (y[j]>= 0.) ++ntp;
-                else ++nfp;
+                if (y[j]>= 0.) {
+                    ++tp;
+                }else{
+                    ++fp;
+                }
             } else {
-                if (y[j]>= 0.) ++ntn;
-                else ++nfn;
+                if (y[j]>= 0.) {
+                    ++tn;
+                }else{
+                    ++fn;
+                }
             }
+            out.write((char*)&y[j],sizeof(double));
+            out.write((char*)&fx,sizeof(double));
         }
-        delete [] vecs;
+        out.close();
+        narr[tid][0]=tp;
+        narr[tid][1]=tn;
+        narr[tid][2]=fp;
+        narr[tid][3]=fn;
     }
+    int nsum = 0;
+    nth = nth_i[0];
+    ntp = nfp = ntn = nfn = 0;
+    for (i=0; i< nth; ++i) {
+        ntp += narr[i][0];
+        ntn += narr[i][1];
+        nfp += narr[i][2];
+        nfn += narr[i][3];
+        nsum += narr[i][0] + narr[i][1] + narr[i][2] + narr[i][3];
+    }
+    std::cerr << "nth = " << nth << "\n";
+    std::cerr << "nsum = " << nsum << "\n";
 #else
-    svm_eval kfun(opts);
-    double *vecs = new double[nvecs*nfeat];
-    in.read((char*)vecs,sizeof(double)*nfeat*nvecs);
-    in.close();
-    for (i=0; i<nvecs; ++i) {
-        vp = vecs + i * nfeat;
-        fx = kfun.gensum(vp)- bias;
-        if (fx > 0.) {
-            if (y[i]> 0.) ++ntp;
+    svm_model model(options.out);
+    std::ofstream out;
+    out.open(options.out.c_str());
+    for (int i=0; i<data.nvecs; ++i) {
+        fx = model.gensum(vecs+i*data.nfeat);
+        if (fx >= 0.0) {
+            if (y[i]>=0.0) ++ntp;
             else ++nfp;
         } else {
-            if (y[i]> 0.) ++ntn;
+            if (y[i]>=0.0) ++ntn;
             else ++nfn;
         }
         out.write((char*)&y[i],sizeof(double));
         out.write((char*)&fx,sizeof(double));
     }
-    delete [] vecs;
+    out.close();
 #endif
-    delete [] y;
+    ctimer.stop();
+    std::cerr << "ntp = " << ntp << " nfp " << nfp << " ntn " << ntn << " nfn " << nfn << "\n";
+    std::cerr << "classification time = " << ctimer.time() << " seconds\n";
     analyze(ntp,nfp,ntn,nfn);
 }
+

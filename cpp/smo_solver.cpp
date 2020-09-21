@@ -79,24 +79,24 @@ void smo_solver::find_gap() noexcept {
     gap_timer.start();
 #endif
 
-#pragma omp parellel for  private(k) reduction(+,asum) reduction(+,fsum)
+    #pragma omp parellel for  private(k) reduction(+,asum) reduction(+,fsum)
     for ( k = 0; k < nvecs; ++k ) {
         asum += alfa[k];
         fsum += alfa[k] * grad[k] * y[k];
     }
-    fsum = ( fsum + asum ) * 0.500000000000;
-#pragma omp parellel for  private(k) reduction(+,bias) reduction(+,nfree)
+    fsum = ( fsum + asum ) / 2.0;
+    #pragma omp parellel for  private(k) reduction(+,bias) reduction(+,nfree)
     for ( k = 0; k < nvecs; ++k ) {
-        if ( status[k] != 0 )
-            continue;
-        bsum += grad[k] ;
-        ++nfree;
+        if ( status[k] == 0 ) {
+            bsum += grad[k] ;
+            ++nfree;
+        }
     }
     bsum = -bsum;
 ///// if nfree = 0 then bias = 0 so no need for an else here
     if ( nfree )
         bsum /= nfree;
-#pragma omp parellel for  private(k) reduction(+,csum)
+    #pragma omp parellel for  private(k) reduction(+,csum)
     for ( k = 0; k < nvecs; ++k ) {
         csum += fmax( 0, ( y[k] * ( grad[k] + bsum ) ) );
     }
@@ -104,6 +104,7 @@ void smo_solver::find_gap() noexcept {
     gap = ( csum + asum - fsum - fsum ) / ( 1.0 + asum + csum - fsum );
     fun = fsum;
     bias = bsum;
+    std::cerr << "asum = " << asum << " csum  =" << csum << "\n";
 #ifdef USE_TIMERS
     gap_timer.stop();
 #endif
@@ -118,6 +119,7 @@ int smo_solver::take_step ( int imax, int imin ) noexcept {
 #ifdef USE_TIMERS
     kmat_timer.start();
 #endif
+#ifdef SVM_PARANOID
     if (imax < 0 || imax>= nvecs) {
         fprintf(stderr,"imax out of range %d\n",imax);
         exit(EXIT_FAILURE);
@@ -126,6 +128,7 @@ int smo_solver::take_step ( int imax, int imin ) noexcept {
         fprintf(stderr,"imin out of range %d\n",imin);
         exit(EXIT_FAILURE);
     }
+#endif
     kmatrix.get_row(imax,imin,kmax,kmin);
     const double *qmax= *kmax;
     const double *qmin= *kmin;
@@ -186,7 +189,7 @@ int smo_solver::take_step ( int imax, int imin ) noexcept {
         {
             const double da1 = ( y[imax] ) * ( a1 - ai );
             const double da2 = ( y[imin] ) * ( a2 - aj );
-#pragma omp parellel for  private(k,da1,da2)  schedule(static,1000)
+            #pragma omp parellel for  private(k,da1,da2)  schedule(static,1000)
             for ( k = 0; k < nvecs; ++k ) {
                 grad[k] -= ( da1 * qmax[k] + da2 * qmin[k] );
             }
@@ -216,7 +219,7 @@ IndexPair& PairMin(IndexPair &p1, IndexPair &p2) noexcept {
 
 
 
-#ifdef SVM_USE_OPENMP    
+#ifdef SVM_USE_OPENMP
 int smo_solver::find_step() noexcept {
     int k,i;
     double ys,gx;
@@ -231,11 +234,11 @@ int smo_solver::find_step() noexcept {
     the_min.value = max0;
     the_min.index = -1;
 
-#pragma omp declare reduction(MaxPair:IndexPair:omp_out.Max(omp_in)) initializer(omp_priv=IndexPair(-1.e300,-1))
+    #pragma omp declare reduction(MaxPair:IndexPair:omp_out.Max(omp_in)) initializer(omp_priv=IndexPair(-1.e300,-1))
 
-#pragma omp declare reduction(MinPair:IndexPair:omp_out.Min(omp_in)) initializer(omp_priv=IndexPair(1.e300,-1))
+    #pragma omp declare reduction(MinPair:IndexPair:omp_out.Min(omp_in)) initializer(omp_priv=IndexPair(1.e300,-1))
 
-#pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min) schedule(static,1000)
+    #pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min) schedule(static,1000)
     for ( k = 0; k < nvecs; ++k ) {
         ys = y[k] * status[k];
         gx = grad[k];
@@ -255,77 +258,6 @@ int smo_solver::find_step() noexcept {
     }
     return -1;
 }
-
-
-/*
-int smo_solver::find_step() noexcept {
-    int tid,nth;
-    int64_t k,i;
-    double ys,gx;
-    double max0 = 1.e100;
-    IndexPair the_max;
-    IndexPair the_min;
-    IndexPair max_pair[128];
-    IndexPair min_pair[128];
-    IndexPair my_max;
-    IndexPair my_min;
-#ifdef USE_TIMERS
-    find_timer.start();
-#endif    
-#pragma omp parallel private(my_max,my_min,tid) shared(nth,max_pair,min_pair)
-    {
-        tid = omp_get_thread_num();
-        nth = omp_get_num_threads();
-        my_max.value = -max0;
-        my_max.index = -1;
-        my_min.value = max0;
-        my_min.index = -1;
-#pragma omp parallel for private(k,gx,ys)
-        for (k=0;k<nvecs;++k) {
-            ys = y[k] * status[k];
-            gx = grad[k];
-            if (ys <= 0.5) {
-                if (my_max.value < gx) {
-                    my_max.value = gx;
-                    my_max.index = k;
-                }
-            } 
-            if (ys >= -0.5) {
-                if (my_min.value > gx) {
-                    my_min.value = gx;
-                    my_min.index = k;
-                }
-            }
-        } 
-        max_pair[tid].value = my_max.value;
-        max_pair[tid].index = my_max.index;
-        min_pair[tid].value = my_min.value;
-        min_pair[tid].index = my_min.index;
-    }
-    the_max.value = max_pair[0].value;
-    the_max.index = max_pair[0].index;
-    the_min.value = min_pair[0].value;
-    the_min.index = min_pair[0].index;
-    for (i=1; i<nth; ++i) {
-        if (the_max.value < max_pair[i].value) {
-            the_max.value = max_pair[i].value;
-            the_max.index = max_pair[i].index;
-        }
-        if (the_min.value < min_pair[i].value) {
-            the_min.value = min_pair[i].value;
-            the_min.index = min_pair[i].index;
-        }
-    }    
-#ifdef USE_TIMERS
-    find_timer.stop();
-#endif
-    if ( the_max.index != -1 || the_min.index != -1 ||
-            the_max.index != the_min.index || fabs( the_max.value - the_min.value ) > eps ) {
-        return take_step (the_max.index, the_min.index );
-    }
-    return -1;
-}
-*/
 #else
 /*
  * Serial find step subroutine
@@ -336,7 +268,7 @@ int smo_solver::find_step() noexcept {
     double max0 = 1.e300;
     IndexPair the_max;
     IndexPair the_min;
-    
+
 #ifdef USE_TIMERS
     find_timer.start();
 #endif
@@ -369,7 +301,7 @@ int smo_solver::find_step() noexcept {
     }
     return -1;
 }
-#endif    
+#endif
 
 
 void smo_solver::output_model_file(const svm_options& opts) {
@@ -380,25 +312,25 @@ void smo_solver::output_model_file(const svm_options& opts) {
     int nfp = 0 ;
     int ntn = 0 ;
     int nfn = 0 ;
-    int itmp,k;
+    int k;
     double dtmp;
     double fx;
     const double *scal = kmatrix.keval.scale;
     double *v;
-#pragma omp parellel for  private(k) reduction(+,nsv) reduction(+,nbnd)
+    #pragma omp parellel for  private(k) reduction(+,nsv) reduction(+,nbnd)
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] >= 0 ) {
             ++nsv;
             if ( status[k] > 0 ) ++nbnd;
         }
     }
-    
+
     std::cerr << "# training vectors      = " << nvecs << "\n";
     std::cerr << "# support vectors       = " << nsv << "\n";
     std::cerr << "# bound support vecs    = " << nbnd << "\n";
 
     std::ofstream out;
-    out.open(opts.model.c_str());    
+    out.open(opts.model.c_str());
     out.write((char*)&nsv,sizeof(int));
     out.write((char*)&(opts.nfeat),sizeof(int));
     out.write((char*)&(opts.ktype),sizeof(int));
@@ -406,7 +338,7 @@ void smo_solver::output_model_file(const svm_options& opts) {
     out.write((char*)&(opts.kc1),sizeof(double));
     out.write((char*)&(opts.kc2),sizeof(double));
     out.write((char*)&(bias),sizeof(double));
-    itmp = opts.scale_kernel;
+    int itmp = opts.scale_kernel ? 1:0;
     out.write((char*)&(itmp),sizeof(int));
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] < 0 ) continue;
@@ -419,7 +351,7 @@ void smo_solver::output_model_file(const svm_options& opts) {
         out.write((char*)v,nfeat*sizeof(double));
     }
     out.close();
-    fprintf(stderr,"wrote model file\n");    
+    fprintf(stderr,"wrote model file\n");
     std::ofstream fout(opts.out.c_str());
 
     for ( k = 0; k < nvecs; ++k ) {

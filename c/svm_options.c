@@ -1,135 +1,158 @@
-
 #include "svm_options.h"
 
-inline void read_libsvm_data_file(svm_options_t* opts)
+
+inline void svm_options_read_tdo_file(svm_options_t* opts) {
+    int nvecs,nfeat;
+    FILE *fp;
+    
+    fprintf(stderr,"Reading Data file %s\n",opts->data);
+    fp =Fopen(opts->data,"r");
+    fread((void*)&nvecs,1,sizeof(int),fp);
+    fread((void*)&nfeat,1,sizeof(int),fp);
+    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
+    opts->nvecs =nvecs;
+    opts->nfeat =nfeat;
+    opts->y = (double*)Malloc(sizeof(double)*nvecs);
+    opts->vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
+    fread((void*)(opts->y),nvecs,sizeof(double),fp);
+    fread((void*)(opts->vecs),nvecs*nfeat,sizeof(double),fp);
+    fclose(fp);
+    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
+}
+
+inline void svm_options_read_libsvm_file(svm_options_t* opts)
 {
-    size_t nvecs = 0;
-    int max_nfeat = 0;
-    size_t ntokens=0;
-    size_t nfeat=0;
-    size_t ivec;
-    int j;
-    int index;
-    int sz;
-    const char *delims = " :\n";
-    char *end;
+    int nvecs,nfeat;
     size_t buffer_size = MAX_LINE_SIZE;
     char *buffer = (char*)Malloc(MAX_LINE_SIZE);
     char **tokens = tokens_init();
-    double *vecs;
-    double *y;
+    char *end;
+    const char *delims = " :\n";
+    size_t ntokens;
+    size_t sz;
+    int ivec,j;
+    int index;
     double value;
-    int i;
-    double tau=1.e-14;
-    FILE *fp_out;
-    /// training task
-    FILE *fp = Fopen(opts->data,"r");
-
+    FILE *fp;
+    
+    nvecs = 0;
+    nfeat = 0;
+    fprintf(stderr,"Reading Data file %s\n",opts->data);
+    fp = Fopen(opts->data,"r");
     while (!feof(fp)) {
-        sz = getline(&buffer,&buffer_size,fp);
-        if (sz==0) break;
+        if (!getline(&buffer,&buffer_size,fp)) break;
         if (buffer[0]=='#') continue;
         ntokens = explode_string(buffer,delims,tokens);
-        if (ntokens==0) {
-            break;
-        }
+        if (ntokens==0) break;
         if (ntokens%2) {
-            if (ntokens!=1)
-            {
-                index = atoi(tokens[ntokens-2]);
-                if (index > max_nfeat) max_nfeat = index;
-            }
-            ++nvecs;
-        } else {
-            parse_error("read_libsvm_data_file format error");
+            index = ntokens-2;
+            sz = atoi(tokens[index]);
+            if (sz > nfeat) nfeat=(int)sz; 
+        }else{
+            fprintf(stderr,"Format Error reading data file %s\n",opts->data);
+            exit(EXIT_FAILURE);
         }
+        ++nvecs;
     }
     clearerr(fp);
     rewind(fp);
-    nfeat = max_nfeat;
-    vecs = (double*)Calloc(sizeof(double)*nvecs*nfeat);
-    y = (double*)Malloc(sizeof(double)*nvecs);
+    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
+    opts->nvecs =nvecs;
+    opts->nfeat =nfeat;
+    opts->y = (double*)Malloc(sizeof(double)*nvecs);
+    opts->vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
+    memset(opts->vecs,0x0,sizeof(double)*nvecs*nfeat);
     ivec = 0;
     while (!feof(fp)) {
-        sz = getline(&buffer,&buffer_size,fp);
-        if (sz==0) break;
+        if (!getline(&buffer,&buffer_size,fp)) break;
         if (buffer[0]=='#') continue;
         ntokens = explode_string(buffer,delims,tokens);
-        if (ntokens==0) {
-            break;
-        }
-        y[ivec] = (double)atoi(tokens[0]);
-        for (j=1; j<ntokens; ++j) {
+        if (ntokens==0) break;
+        (opts->y)[ivec] = strtod(tokens[0],&end);
+        for (j=1;j<ntokens;j+=2) {
             index = atoi(tokens[j]);
-            ++j;
-            value = strtod(tokens[j],&end);
-            vecs[ ivec*nfeat + index - 1 ] = value;
+            value = strtod(tokens[j+1],&end);
+            (opts->vecs)[ivec*nfeat + index-1] = value;        
         }
         ++ivec;
     }
-    fclose(fp);
-    /* free buffer and tokens */
+    fclose(fp);    
     tokens_free(tokens);
     free(buffer);
-    /* assign variables to opts */
-    opts->nfeat = nfeat;
-    opts->nvecs = nvecs;
-    opts->y = y;
-    opts->vecs = vecs;
-    fprintf(stderr,"read libsvm file # vecs = %d # of featurs = %d\n",opts->nvecs,opts->nfeat);
-    return;
-}
+}    
 
-inline void read_tdo_data_file(svm_options_t* opts)
-{
-    double *vecs;
-    double *y;
-    int nvecs;
-    int nfeat;
-    int nrd;
-    /// training task
-    FILE *fp = Fopen(opts->data,"r");
-    Fread(&nvecs,1,sizeof(int),fp);
-    Fread(&nfeat,1,sizeof(int),fp);
-    vecs = (double*)Calloc(sizeof(double)*nvecs*nfeat);
-    y = (double*)Malloc(sizeof(double)*nvecs);
-    Fread(y,nvecs,sizeof(double),fp);
-    Fread(vecs,nvecs*nfeat,sizeof(double),fp);
-    fclose(fp);
-    opts->nfeat = nfeat;
-    opts->nvecs = nvecs;
-    opts->vecs = vecs;
-    opts->y = y;
-    return;
-}
-
-inline void read_model_file(svm_options_t* opts)
+inline void svm_options_read_model_file(svm_options_t* opts)
 {
     double *y;
     double *vecs;
     int nvecs;
     int nfeat;
+    int nf,nt,i;
     size_t nrd;
-    /// training task
-    FILE *fp = Fopen(opts->data,"r");
-    Fread(&nvecs,1,sizeof(int),fp);
-    Fread(&nfeat,1,sizeof(int),fp);
-    Fread(&(opts->ktype),1,sizeof(int),fp);
-    Fread(&(opts->kpow),1,sizeof(int),fp);
-    Fread(&(opts->kc1),1,sizeof(double),fp);
-    Fread(&(opts->kc2),1,sizeof(double),fp);
-    Fread(&(opts->bias),1,sizeof(double),fp);
-    vecs = (double*)Calloc(sizeof(double)*nvecs*nfeat);
+    /// classifying task read in model file
+    FILE *fp = Fopen(opts->model,"r");
+    fread((void*)&nvecs,1,sizeof(int),fp);
+    fread((void*)&nfeat,1,sizeof(int),fp);
+    fread((void*)&(opts->ktype),1,sizeof(int),fp);
+    fread((void*)&(opts->kpow),1,sizeof(int),fp);
+    fread((void*)&(opts->kc1),1,sizeof(double),fp);
+    fread((void*)&(opts->kc2),1,sizeof(double),fp);
+    fread((void*)&(opts->bias),1,sizeof(double),fp);
+    fread((void*)&(opts->scale_kernel),1,sizeof(int),fp);
+    vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
     y = (double*)Malloc(sizeof(double)*nvecs);
-    Fread(y,nvecs,sizeof(double),fp);
-    Fread(vecs,nvecs*nfeat,sizeof(double),fp);
+    fread((void*)y,nvecs,sizeof(double),fp);
+    fread((void*)vecs,nvecs*nfeat,sizeof(double),fp);
     fclose(fp);
     opts->nfeat = nfeat;
     opts->nvecs = nvecs;
     opts->vecs = vecs;
     opts->y = y;
+    nt = 0;
+    nf = 0;
+    for (i=0;i<nvecs;++i) {
+        if (y[i] > 0.0) ++nt;
+        else ++nf;
+    }
+    fprintf(stderr," model file # true = %ld # false = %ld\n",nt,nf);
     return;
 }
+
+inline void svm_options_translate(svm_options_t* options) {
+    int i,j;
+    char * data = options->data;
+    char * new_name;
+    int nvecs;
+    int nfeat;
+    char *pstr = strstr(options->data,".tdo");
+
+    svm_options_read_data_file(options);
+    nfeat = options->nfeat;
+    nvecs = options->nvecs;
+    fprintf(stderr,"translating\n");
+    fprintf(stderr,"# vecs = %ld\n",options->nvecs);
+    fprintf(stderr,"# feat = %ld\n",options->nfeat);
+    if (!pstr) {        
+        /* data is not a tdo file */
+        fprintf(stderr," %s is not a tdo file\n",options->data);
+        new_name = strdup(options->data);
+        new_name = strcat(new_name,".tdo");
+        fprintf(stderr,"new name is %s\n",new_name);
+        write_tdo_file(new_name,nvecs,nfeat,options->y,options->vecs);
+    }else{
+        /* data is a tdo file */
+        fprintf(stderr," %s is a tdo file\n",options->data);
+        ptrdiff_t p = pstr-data;
+        new_name = strndup(options->data,p);
+        fprintf(stderr,"new name is %s\n",new_name);
+        write_libsvm_file(new_name,nvecs,nfeat,options->y,options->vecs);
+    }
+    {
+        size_t sz = sizeof(double)*(nvecs+nvecs*nfeat)+sizeof(int)*2;
+        fprintf(stderr,"tdo file size is %ld\n",sz);
+    }
+}
+
 
 int find_substring(const char *str,const char *sub)
 {
@@ -138,11 +161,29 @@ int find_substring(const char *str,const char *sub)
     return -1;
 }
 
-inline void read_data_file(svm_options_t* opts) {
-    char * name = opts->data;
-    char * px= strstr(name,".tdo");
-    if (px==0x0)  read_libsvm_data_file(opts);
-    else read_tdo_data_file(opts);
+inline void svm_options_read_data_file(svm_options_t* opts) {
+    int nt;
+    int nf;
+    int i;
+    char * px= strstr(opts->data,".tdo");
+    
+    fprintf(stderr,"reading data file %s\n",opts->data);
+     
+    if (px==0x0)  {
+        fprintf(stderr,"libsvm data file\n");
+        svm_options_read_libsvm_file(opts);
+    }
+    else {
+        fprintf(stderr,"tdo data file\n");
+        svm_options_read_tdo_file(opts);
+    }
+    nt = 0;
+    nf = 0;
+    for (int i=0;i<opts->nvecs ;++i) {
+        if (opts->y[i]>0.0) ++nt;
+        else ++nf;
+    }
+    fprintf(stderr,"# true = %ld #false = %ld\n",nt,nf);
 }
 
 inline svm_options_t * svm_options_init(int argc,char **argv)
@@ -191,18 +232,18 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
 
     if (strcmp(task_str,"train")==0) {
         opts->task=0;
-        read_data_file(opts);
+        svm_options_read_data_file(opts);
         if (opts->csize == -1) opts->csize = opts->nvecs/6;
         if (opts->csize == 0) opts->csize = opts->nvecs;
         if (opts->max_its==0) opts->max_its = opts->nvecs;
     } else {
         if (strcmp(task_str,"classify")==0) {
             opts->task=1;
-            read_model_file(opts);
+            svm_options_read_model_file(opts);
         } else {
             if (strcmp(task_str,"translate")==0) {
                 opts->task=2;
-                translate(opts->data);
+                svm_options_translate(opts);
             } else {
                 fprintf(stderr,"unknown task %s in svm_options\n",task_str);
             }
@@ -237,22 +278,26 @@ void svm_options_write(svm_options_t* opts,FILE *fp)
     fprintf(fp,"# vectors  = %d \n",opts->nvecs);
     fprintf(fp,"# features = %d \n",opts->nfeat);
     fprintf(fp,"# threads  = %d \n",opts->nths);
-    fprintf(fp,"scale kernel= %d\n",opts->scale_kernel);
-    fprintf(fp,"kernel type = %d\n",opts->ktype);
-    fprintf(fp,"kernel pow  = %d\n",opts->kpow);
-    fprintf(fp,"kernel c1   = %le\n",opts->kc1);
-    fprintf(fp,"kernel c2   = %le\n",opts->kc2);
+    if (opts->task!=2) {
+        fprintf(fp,"scale kernel= %d\n",opts->scale_kernel);
+        fprintf(fp,"kernel type = %d\n",opts->ktype);
+        fprintf(fp,"kernel pow  = %d\n",opts->kpow);
+        fprintf(fp,"kernel c1   = %le\n",opts->kc1);
+        fprintf(fp,"kernel c2   = %le\n",opts->kc2);
+    }
     fprintf(fp,"task        = %d\n",opts->task);
-    if (!(opts->task)) {
+    if (opts->task==0) {
         fprintf(fp,"cache size  = %lu\n",opts->csize);
         fprintf(fp,"eps         = %le\n",opts->eps);
         fprintf(fp,"cost        = %le\n",opts->cost);
         fprintf(fp,"maxits      = %d\n",opts->max_its);
-    } else {
+        fprintf(stderr,"vecs size   = %le MB\n",vsize);
+        fprintf(stderr,"kmat size   = %le MB\n",ksize);
+    } 
+    if (opts->task==1) {
         fprintf(fp,"bias        = %lf \n",opts->bias);
+        fprintf(stderr,"vecs size   = %le MB\n",vsize);
     }
-    fprintf(stderr,"vecs size   = %le MB\n",vsize);
-    fprintf(stderr,"kmat size   = %le MB\n",ksize);
     return;
 }
 

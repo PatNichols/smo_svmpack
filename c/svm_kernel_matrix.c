@@ -57,7 +57,6 @@ inline svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t* opts)
     } else {
         for (i=0; i<nvecs; ++i) eval->scale[i]=1.0;
     }
-
     fprintf(stderr,"Initialized Kernel Evaluator\n");
     return eval;
 }
@@ -174,8 +173,10 @@ int imax,int imin,double **rmax,double **rmin)
             *rmax = krows + imax_f * nvecs;
         }else{
         // if we get here we didn't find row in cache
+            if (imin_f = kmat->last) kmat->last = (kmat->last+1)%kmat->csize;
             last = kmat->last;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imax);
+            imax_f = last;
             *rmax = krows+last*nvecs;
             kmat->cache_index[last] = imax;
             kmat->last = (kmat->last + 1) % kmat->csize;
@@ -184,6 +185,7 @@ int imax,int imin,double **rmax,double **rmin)
             *rmin = krows + imin_f * nvecs;
         }else{
         // if we get here we didn't find row in cache
+            if (imax_f == kmat->last) kmat->last = (kmat->last)%kmat->csize;
             last = kmat->last;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imin);
             *rmin = krows+last*nvecs;

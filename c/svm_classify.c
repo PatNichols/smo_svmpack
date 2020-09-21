@@ -1,169 +1,309 @@
 
 
 #include "svm_classify.h"
+#include "svm_data.h"
 
-svm_kfun_eval_t *svm_kfun_eval_init(svm_options_t* opts)
-{
-    svm_kfun_eval_t * k = MALLOC_PTR(svm_kfun_eval_t);
-    k->vecs = opts->vecs;
-    k->scale = opts->y;
-    k->nvecs = opts->nvecs;
-    k->nfeat = opts->nfeat;
-    k->ktype = opts->ktype;
-    k->kpow = opts->kpow;
-    k->c1 = opts->kc1;
-    k->c2 = opts->kc2;
-    if (k->ktype==2) k->c1 = - k->c1;
-    return k;
-}
-
-inline double svm_kfun_gensum(svm_kfun_eval_t *kfun,
-                              const double *vp, int kscale) {
-    int k,i;
-    int nvecs = kfun->nvecs;
-    int nfeat = kfun->nfeat;
-    int kt = kfun->ktype;
-    int kpow = kfun->kpow;
-    const double *vecs = kfun->vecs;
-    const double *scal = kfun->scale;
-    double c1 = kfun->c1;
-    double c2 = kfun->c2;
-    double sum=0.;
-    double sx= 1.0;
-
-    if (kt!=2 && kscale) {
-        switch (kt) {
-        case 0:
-            sx = eval0(vp,vp,nfeat);
-            sx = 1./sqrt(sx);
-            break;
-        case 1:
-            sx = c1*eval0(vp,vp,nfeat)+c2;
-            sx = dpowi(sx,kpow);
-            sx = 1./sqrt(sx);
-            break;
-        case 2:
-            sx=1.0;
-            break;
-        case 3:
-            sx = c1*eval0(vp,vp,nfeat)+c2;
-            sx = tanh(sx);
-            sx = 1./sqrt(sx);
-            break;
-        }
-    }
-    switch (kt) {
-    case 0:
-        for (k=0; k<nvecs; ++k) {
-            sum += scal[k] * eval0(vp,vecs+k*nfeat,nfeat);
-        }
-        return sx*sum;
-    case 1:
-        for (k=0; k<nvecs; ++k) {
-            sum += scal[k] * dpowi(c1*eval0(vp,vecs+k*nfeat,nfeat)+c2,kpow);
-        }
-        return sx*sum;
-    case 2:
-        for (k=0; k<nvecs; ++k) {
-            sum += scal[k] * exp(c1 * eval1(vp,vecs+k*nfeat,nfeat));
-        }
-        return sx*sum;
-    case 3:
-        for (k=0; k<nvecs; ++k) {
-            sum += scal[k] * tanh(c1*eval0(vp,vecs+k*nfeat,nfeat)+c2);
-        }
-        return sx*sum;
-    }
-    return -1.0;
-}
-
-void svm_classify(svm_options_t *opts)
-{
+svm_data * svm_data_init(const char *data_file) {
+    int nvecs,nfeat;
+    int i,nt,nf;
     FILE *fp;
-    char *new_name;
-    char *data = opts->data;
-    int nvecs,nfeat,i;
-    double sx;
+    svm_data * data = MALLOC_PTR(svm_data);
+    
+    if (strstr(data_file,".tdo")==0x0) {
+        svm_data_read_libsvm(data,data_file);
+    } else {
+        fp = fopen(data_file,"r");
+        fread((void*)&nvecs,1,sizeof(int),fp);
+        fread((void*)&nfeat,1,sizeof(int),fp);
+        data-> y = Malloc(nvecs*sizeof(double));
+        data-> vecs = Malloc(nvecs*nfeat*sizeof(double));
+        fread((void*)data->y,nvecs,sizeof(double),fp);
+        fread((void*)data->vecs,nvecs*nfeat,sizeof(double),fp);
+        data->nvecs = nvecs;
+        data->nfeat = nfeat;
+    }
+    nt = 0;
+    nf = 0;
+    for (i=0; i<nvecs; ++i) {
+        if (data->y[i] > 0.0) ++nt;
+        else ++nf;
+    }
+    fprintf(stderr," data file # true = %ld # false = %ld\n",nt,nf);
+    return data;
+}
+
+void svm_data_free(svm_data * data) {
+    free(data->vecs);
+    free(data->y);
+    free(data);
+}
+
+void svm_data_read_libsvm(svm_data * data,const char *data_file) {
+    int nvecs,nfeat;
+    size_t buffer_size = MAX_LINE_SIZE;
+    char *buffer = (char*)Malloc(MAX_LINE_SIZE);
+    char **tokens = tokens_init();
+    char *end;
+    const char *delims = " :\n";
+    size_t ntokens;
+    size_t sz;
+    int ivec,j;
+    int index;
+    double value;
+    FILE *fp;
+
+    nvecs = 0;
+    nfeat = 0;
+    fprintf(stderr,"Reading Data file %s\n",data_file);
+    fp = Fopen(data_file,"r");
+    while (!feof(fp)) {
+        if (!getline(&buffer,&buffer_size,fp)) break;
+        if (buffer[0]=='#') continue;
+        ntokens = explode_string(buffer,delims,tokens);
+        if (ntokens==0) break;
+        if (ntokens%2) {
+            index = ntokens-2;
+            sz = atoi(tokens[index]);
+            if (sz > nfeat) nfeat=(int)sz;
+        } else {
+            fprintf(stderr,"Format Error reading data file %s\n",data_file);
+            exit(EXIT_FAILURE);
+        }
+        ++nvecs;
+    }
+    clearerr(fp);
+    rewind(fp);
+    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
+    data->nvecs =nvecs;
+    data->nfeat =nfeat;
+    data->y = (double*)Malloc(sizeof(double)*nvecs);
+    data->vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
+    memset(data->vecs,0x0,sizeof(double)*nvecs*nfeat);
+    ivec = 0;
+    while (!feof(fp)) {
+        if (!getline(&buffer,&buffer_size,fp)) break;
+        if (buffer[0]=='#') continue;
+        ntokens = explode_string(buffer,delims,tokens);
+        if (ntokens==0) break;
+        (data->y)[ivec] = strtod(tokens[0],&end);
+        for (j=1; j<ntokens; j+=2) {
+            index = atoi(tokens[j]);
+            value = strtod(tokens[j+1],&end);
+            (data->vecs)[ivec*nfeat + index-1] = value;
+        }
+        ++ivec;
+    }
+    fclose(fp);
+    tokens_free(tokens);
+    free(buffer);
+}
+
+void svm_model_free(svm_model *model) {
+    free(model->vecs);
+    free(model->yalfa);
+    free(model);
+}
+
+
+svm_model * svm_model_init(const char *model_file) {
     double *y;
     double *vecs;
-    double fx;
-    size_t p;
-    int off,xsz0,nsz0,nsz,tid,nth;
-    int ntp,nfp,ntn,nfn;
-    double *vp;
-    double  bias = opts->bias;
-    int kscale = opts->scale_kernel;
-    svm_kfun_eval_t * kfun = svm_kfun_eval_init(opts);
-
-    if (strstr(data,".tdo")==0x0) {
-        new_name = strcat(data,".tdo");
-        // this is not a tdo file
-        translate_to_tdo(data,new_name);
-    } else {
-        new_name = data;
-    }
-    fp = Fopen(new_name,"r");
-    fread(&nvecs,1,sizeof(double),fp);
-    fread(&nfeat,1,sizeof(double),fp);
+    int nvecs;
+    int nfeat;
+    int nf,nt,i;
+    size_t nrd;
+    /// classifying task read in model file
+    svm_model *model = MALLOC_PTR(svm_model);
+    FILE *fp = Fopen(model_file,"r");
+    fread((void*)&nvecs,1,sizeof(int),fp);
+    fread((void*)&nfeat,1,sizeof(int),fp);
+    fread((void*)&(model->ktype),1,sizeof(int),fp);
+    fread((void*)&(model->kpow),1,sizeof(int),fp);
+    fread((void*)&(model->c1),1,sizeof(double),fp);
+    fread((void*)&(model->c2),1,sizeof(double),fp);
+    fread((void*)&(model->bias),1,sizeof(double),fp);
+    fread((void*)&(model->kscal),1,sizeof(int),fp);
+    vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
     y = (double*)Malloc(sizeof(double)*nvecs);
-    fread(y,nvecs,sizeof(double),fp);
-    p = ftell(fp);
+    fread((void*)y,nvecs,sizeof(double),fp);
+    fread((void*)vecs,nvecs*nfeat,sizeof(double),fp);
+    fclose(fp);
+    model->nfeat = nfeat;
+    model->nvecs = nvecs;
+    model->vecs = vecs;
+    model->yalfa = y;
+    if (model->ktype==2) model->c1 *= -1.0;
+    nt = 0;
+    nf = 0;
+    for (i=0; i<nvecs; ++i) {
+        if (y[i] > 0.0) ++nt;
+        else ++nf;
+    }
+    fprintf(stderr," model file # true = %ld # false = %ld\n",nt,nf);
+    return model;
+}
+
+double svm_model_gensum(svm_model *model,const double *vp)
+{
+    int i,j;
+    int nvecs = model->nvecs;
+    int nfeat = model->nfeat;
+    double sx = 1.;
+    double vsum,sum,t;
+    const double tau=1.e-14;
+    const double *vi;
+    if (model->kscal && model->ktype!=2) {
+        sx = 0.0;
+        for (i=0; i<nfeat; ++i) {
+            sx += vp[i]*vp[i];
+        }
+        switch (model->ktype) {
+        case 0:
+            sx = (sx<tau) ? (1.0/sqrt(sx)):1.0;
+            break;
+        case 1:
+            sx = model->c1 * sx + model->c2;
+            sx = pow(sx,model->kpow);
+            sx = (sx<tau) ? (1.0/sqrt(sx)):1.0;
+            break;
+        case 2:
+            sx = 1.0;
+            break;
+        case 3:
+            sx = model->c1 * sx + model->c2;
+            sx = tanh(sx);
+            sx = (sx<tau) ? (1.0/sqrt(sx)):1.0;
+            break;
+        }
+    }
+    switch(model->ktype) {
+    case 0:
+        for (i=0; i<nvecs; ++i) {
+            vi = model->vecs + i * nfeat;
+            vsum = 0.0;
+            for (j=0; j<nfeat; ++j) vsum += vp[j]*vi[j];
+            sum += vsum * (model->yalfa)[i];
+        }
+        return sum*sx-model->bias;
+    case 1:
+        for (i=0; i<nvecs; ++i) {
+            vi = model->vecs + i * nfeat;
+            vsum = 0.0;
+            for (j=0; j<nfeat; ++j) vsum += vp[j]*vi[j];
+            vsum = pow(model->c1 * vsum + model->c2,model->kpow);
+            sum += vsum * (model->yalfa)[i];
+        }
+        return sum*sx-model->bias;
+    case 2:
+        sum = 0.0;
+        for (i=0; i<nvecs; ++i) {
+            vi = model->vecs + i * nfeat;
+            vsum = 0.0;
+            for (j=0; j<nfeat; ++j) {
+                t = vp[j]-vi[j];
+                vsum += t*t;
+            }
+            vsum = exp(model->c1*vsum);
+            sum += vsum * (model->yalfa)[i];
+        }
+        return sum-(model->bias);
+    case 3:
+        for (i=0; i<nvecs; ++i) {
+            vi = model->vecs + i * nfeat;
+            vsum = 0.0;
+            for (j=0; j<nfeat; ++j) vsum += vp[j]*vi[j];
+            vsum = tanh(model->c1 * vsum + model->c2);
+            sum += vsum * (model->yalfa)[i];
+        }
+        return sum*sx-model->bias;
+    }
+}
+
+void svm_classify(svm_options_t *options) {
+    int i;
+    double sum;
+    int ntp=0;
+    int ntn=0;
+    int nfp=0;
+    int nfn=0;
+    double *vecs_data;
+    double *y_data;
+    const double *vi;
+    int nvecs_data;
+    int nfeat_data;
+    FILE *fp;
+    FILE *out;
+    char * data_file;
+    svm_model * model;
+    svm_data * data;
+
+    fprintf(stderr,"model file      = %s\n",options->model);
+    model = svm_model_init(options->model);
+    data = svm_data_init(options->data);
+    nfeat_data = data->nfeat;
+    nvecs_data = data->nvecs;
+    y_data = data->y;
+    vecs_data = data->vecs;
+    fprintf(stderr,"Classifying\n");
+    fprintf(stderr,"# of model vecs = %ld\n",model->nvecs);
+    fprintf(stderr,"# of model feat = %ld\n",model->nfeat);
+    fprintf(stderr,"# of data  vecs = %ld\n",nvecs_data);
+    fprintf(stderr,"# of data  feat = %ld\n",nfeat_data);
+    fprintf(stderr,"data file       = %s\n",options->data);
+    fprintf(stderr,"out  file       = %s\n",options->out);
+
+#ifdef _OPENMP
+
+#pragma omp parallel for private(i,vi,sum) reduction(+:ntp) reduction(+:nfp) reduction(+:ntn) reduction(+:nfn)
+    for (i=0; i<nvecs_data; ++i) {
+        vi = vecs_data + i * nfeat_data;
+        sum  = svm_model_gensum(model,vi);
+        if (sum >= 0.0) {
+            /* positive */
+            if (y_data[i]>0.) {
+                ++ntp;
+            } else {
+                ++nfp;
+            }
+        } else {
+            /* negative */
+            if (y_data[i]>0.) {
+                ++ntn;
+            } else {
+                ++nfn;
+            }
+        }
+    }
+#else
     ntp = 0;
     nfp = 0;
     ntn = 0;
     nfn = 0;
-#ifdef SVM_USE_OPENMP
-    #pragma omp parallel private(tid,nsz0,xsz0,nsz,off,p,vecs,i,fx) \
-    reduction(+:ntp) reduction(+:nfp) reduction(+:nfn) reduction(+:ntn)
-    {
-        tid = omp_get_thread_num();
-        nth = omp_get_num_threads();
-        nsz0 = nvecs/nth;
-        xsz0 = nvecs%nth;
-        if (tid < xsz0) {
-            off = tid * (nsz0 + 1);
-            nsz = nsz0 + 1;
-        } else {
-            off = tid * nsz0 + xsz0;
-            nsz = nsz0;
-        }
-        vecs = (double*)Malloc(sizeof(double)*nfeat*nsz);
-        off *= nfeat*sizeof(double);
-        off += p;
-        nsz0= nsz * nfeat;
-        fseek(fp,off,SEEK_SET);
-        Fread(vecs,nsz*nfeat,sizeof(double),fp);
-        for (i=0; i<nsz; ++i) {
-            vp = vecs + i * nfeat;
-            fx = svm_kfun_gensum(kfun,vp,kscale) - bias;
-            if (fx > 0.) {
-                if (y[i]>0.) ++ntp;
-                else ++nfp;
+    out = Fopen(options->out,"w");
+    for (i=0; i<nvecs_data; ++i) {
+        vi = vecs_data + i * nfeat_data;
+        sum  = svm_model_gensum(model,vi);
+        if (sum >= 0.0) {
+            /* positive */
+            if (y_data[i]>=0.) {
+                ++ntp;
             } else {
-                if (y[i]>0.) ++ntn;
-                else ++nfn;
+                ++nfp;
+            }
+        } else {
+            /* negative */
+            if (y_data[i]>=0.) {
+                ++ntn;
+            } else {
+                ++nfn;
             }
         }
-        free(vecs);
+        fwrite((void*)&y_data[i],1,sizeof(double),out);
+        fwrite((void*)&sum,1,sizeof(double),out);
     }
-#else
-    vecs = (double*)Malloc(sizeof(double)*nfeat*nvecs);
-    fread(vecs,nvecs*nfeat,sizeof(double),fp);
-    for (i=0; i<nvecs; ++i) {
-        vp = vecs + i * nfeat;
-        fx = svm_kfun_gensum(kfun,vp,kscale) - bias;
-        if (fx > 0.) {
-            if (y[i]>0.) ++ntp;
-            else ++nfp;
-        } else {
-            if (y[i]>0.) ++ntn;
-            else ++nfn;
-        }
-    }
-    free(vecs);
+    fclose(out);
 #endif
-    analyze(ntp,nfp,ntn,nfn);
-    free(y);
-    fclose(fp);
-    svm_kfun_eval_free(kfun);
+    analyze(ntp,ntn,nfp,nfn);
+    svm_data_free(data);
+    svm_model_free(model);
 }

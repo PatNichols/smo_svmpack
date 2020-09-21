@@ -10,21 +10,8 @@
 #endif
 #include "utils.h"
 #include "svm_options.h"
+#include "svm_data.h"
 
-typedef struct
-{
-    double *vecs;
-    double *scale;
-    double c1,c2;
-    int nvecs,nfeat,ktype,kpow;
-} svm_kfun_eval_t;
-
-svm_kfun_eval_t *svm_kfun_eval_init(svm_options_t* opts);
-
-#define svm_kfun_eval_free(k) free((k))
-
-double svm_kfun_gensum(svm_kfun_eval_t *kfun,const double *vp,int scale_k);
-
-void svm_classify(svm_options_t *opts);
+void svm_classify(svm_options_t *options);
 
 #endif

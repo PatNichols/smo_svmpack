@@ -37,26 +37,26 @@ struct smo_solver {
         status(0x0),fun(0.),
         bias(0.),gap(0.),cost(options.cost),eps(options.eps),
         nvecs(options.nvecs)
-#ifdef USE_TIMERS    
+#ifdef USE_TIMERS
         ,kmat_timer(),gap_timer(),step_timer(),grad_timer(),find_timer()
 #endif
     {
-    int k;
-    alfa = new double[nvecs];
-    grad = new double[nvecs];
-    status = new int[nvecs];
-    kmax = new double*();
-    kmin = new double*();
-    for (k=0; k<nvecs; ++k) {
-        alfa[k]=0.;
-    }
-    for (k=0;k<nvecs;++k) {
-        status[k] = -1;
-    }
-    for (k=0;k<nvecs;++k) {
-        y[k] = ( y[k] >= 0. ) ? 1.:-1.;
-        grad[k] = y[k];
-    }
+        int k;
+        alfa = new double[nvecs];
+        grad = new double[nvecs];
+        status = new int[nvecs];
+        kmax = new double*();
+        kmin = new double*();
+        for (k=0; k<nvecs; ++k) {
+            alfa[k]=0.;
+        }
+        for (k=0; k<nvecs; ++k) {
+            status[k] = -1;
+        }
+        for (k=0; k<nvecs; ++k) {
+            y[k] = ( y[k] >= 0. ) ? 1.:-1.;
+            grad[k] = y[k];
+        }
     }
     ~smo_solver() {
         delete kmin;
@@ -75,11 +75,11 @@ struct smo_solver {
 struct  IndexPair {
     double value;
     int64_t index;
-    
+
     IndexPair():value(0),index(-1) {}
 
     IndexPair(double p,int64_t i):value(p),index(i) {}
-    
+
     IndexPair& Max(IndexPair& p) {
         if (value < p.value) {
             value = p.value;
@@ -107,7 +107,7 @@ struct  IndexPair {
             index = pindex;
         }
         return *this;
-    }   
+    }
 };
 
 void smo_solver_train(svm_options& opts);

@@ -23,5 +23,6 @@ int explode_string(const std::string& str,const std::string& delims,std::vector<
 double dpowi(double x,int i);
 int parse_bool(const std::string& str);
 void analyze(int ntp,int ntn,int nfp,int nfn);
-
+void write_tdo_file(const char *name,int nvecs,int nfeat,const double *y,const double *vecs);
+void write_libsvm_file(const char *name,int nvecs,int nfeat,const double *y,const double *vecs);
 #endif

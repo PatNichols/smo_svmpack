@@ -31,10 +31,12 @@ typedef struct {
 
 svm_options_t * svm_options_init(int argc,char **argv);
 void svm_options_free(svm_options_t* opts);
-void read_libsvm_data_file(svm_options_t* opts);
-void read_tdo_data_file(svm_options_t* opts);
-void read_model_file(svm_options_t* opts);
-void read_data_file(svm_options_t* opts);
+
+void svm_options_read_libsvm_file(svm_options_t* opts);
+void svm_options_read_tdo_file(svm_options_t* opts);
+void svm_options_translate(svm_options_t* opts);
+void svm_options_read_model_file(svm_options_t* opts);
+void svm_options_read_data_file(svm_options_t* opts);
 void svm_options_write(svm_options_t* opts,FILE *fp);
 #endif
 
