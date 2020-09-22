@@ -9,13 +9,13 @@ typedef struct {
     double elapsed_time;
 } stopwatch_t;
 
-stopwatch_t * timer_init();
 
-#define timer_free(s) free((s))
-#define timer_start(s) clock_gettime(CLOCK_MONOTONIC,&((s)->st))
+#define stopwatch_free(s) free((s))
+#define stopwatch_start(s) clock_gettime(CLOCK_MONOTONIC,&((s)->st))
+#define stopwatch_clear(s) (s)->elapsed_time =0.0
+#define stopwatch_time(s) (s)->elapsed_time
 
-void timer_stop(stopwatch_t *s);
-
-#define timer_clear(s) (s)->elapsed_time =0.0
+stopwatch_t * stopwatch_init();
+void stopwatch_stop(stopwatch_t *s);
 
 #endif

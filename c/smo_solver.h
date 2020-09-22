@@ -1,54 +1,65 @@
-#ifndef SMO_SOLVER_H
-#define SMO_SOLVER_H
+#ifndef smo_solver_h
+#define smo_solver_h
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
-#include <stdio.h>
-#include <omp.h>
-#include "stopwatch.h"
-#include "svm_kernel_matrix.h"
-#include "svm_options.h"
+#include <limits.h>
+
 #include "utils.h"
-#define USE_TIMERS
+#include "svm_options.h"
+#include "svm_kernel_matrix.h"
+#include "stopwatch.h"
 
-#ifdef _OPENMP
-#define SVM_USE_OPENMP
-#endif
+#define USE_TIMERS 1
 
-typedef struct {
-    svm_kernel_matrix_t *kmatrix;
-    double **kmax;
-    double **kmin;
-    double *alfa;
-    double *grad;
-    double *y;
-    int *status;
-    double fun,bias,gap,cost,eps;
-    int nvecs;
-#ifdef USE_TIMERS
-    stopwatch_t * kmat_timer;
-    stopwatch_t * gap_timer;
-    stopwatch_t * step_timer;
-    stopwatch_t * grad_timer;
-    stopwatch_t * find_timer;
-#endif
-} smo_solver_t;
-
-struct  IndexPair {
+struct index_pair_t {
     double value;
-    int64_t index;
+    int index;
 };
 
-typedef struct IndexPair IndexPair;
+typedef struct index_pair_t index_pair_t;
 
-IndexPair* PairMax(IndexPair *p1, IndexPair *p2);
-IndexPair* PairMin(IndexPair *p1, IndexPair *p2);
+struct smo_solver_t {
+    double *y;
+    double *alpha;
+    double *grad;
+    int *status;
+    double fun;
+    double gap;
+    double eps;
+    double cost;
+    double bias;
+    index_pair_t *index_max;
+    index_pair_t *index_min;
+    svm_kernel_matrix_t * kmatrix;
+    double **kmax;
+    double **kmin;
+    int nvecs;
+    int maxits;
+#ifdef USE_TIMERS
+    stopwatch_t *kmat_timer;
+    stopwatch_t *grad_timer;
+    stopwatch_t *gap_timer;
+    stopwatch_t *find_timer;
+    stopwatch_t *step_timer;
+#endif
+};
 
-void smo_solver_train(svm_options_t *opts);
-int smo_solver_find_step(smo_solver_t *smo);
-int smo_solver_take_step(smo_solver_t *smo,int imax,int imin);
-void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t *opts);
+typedef struct smo_solver_t smo_solver_t;
+
+void smo_solver_train(svm_options_t * options);
+
+index_pair_t * index_pair_max(index_pair_t* p1,index_pair_t *p2);
+index_pair_t * index_pair_min(index_pair_t* p1,index_pair_t *p2);
+index_pair_t * index_pair_max_value(index_pair_t *p,double v,int i);
+index_pair_t * index_pair_min_value(index_pair_t *p,double v,int i);
+index_pair_t * index_pair_init(double v,int i);
+void index_pair_free(index_pair_t *p);
+
+smo_solver_t * smo_solver_init(svm_options_t *options);
+void smo_solver_free(smo_solver_t *smo);
 void smo_solver_find_gap(smo_solver_t *smo);
-IndexPair * PairMax(IndexPair*,IndexPair*);
-IndexPair * PairMin(IndexPair*,IndexPair*);
+int smo_solver_take_step (smo_solver_t *smo, int imax, int imin );
+int smo_solver_find_step(smo_solver_t *smo);
+void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts);
 #endif

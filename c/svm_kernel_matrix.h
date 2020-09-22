@@ -21,8 +21,7 @@ typedef struct {
     int last;
 } svm_kernel_matrix_t;
 
-
-svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t* opts);
+svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts);
 void svm_kernel_eval_free(svm_kernel_eval_t * eval);
 void svm_kernel_eval0(svm_kernel_eval_t *eval,double *row,int irow);
 void svm_kernel_eval1(svm_kernel_eval_t *eval,double *row,int irow);

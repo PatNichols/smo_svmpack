@@ -1,85 +1,6 @@
 #include "svm_options.h"
 
 
-inline void svm_options_read_tdo_file(svm_options_t* opts) {
-    int nvecs,nfeat;
-    FILE *fp;
-    
-    fprintf(stderr,"Reading Data file %s\n",opts->data);
-    fp =Fopen(opts->data,"r");
-    fread((void*)&nvecs,1,sizeof(int),fp);
-    fread((void*)&nfeat,1,sizeof(int),fp);
-    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
-    opts->nvecs =nvecs;
-    opts->nfeat =nfeat;
-    opts->y = (double*)Malloc(sizeof(double)*nvecs);
-    opts->vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
-    fread((void*)(opts->y),nvecs,sizeof(double),fp);
-    fread((void*)(opts->vecs),nvecs*nfeat,sizeof(double),fp);
-    fclose(fp);
-    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
-}
-
-inline void svm_options_read_libsvm_file(svm_options_t* opts)
-{
-    int nvecs,nfeat;
-    size_t buffer_size = MAX_LINE_SIZE;
-    char *buffer = (char*)Malloc(MAX_LINE_SIZE);
-    char **tokens = tokens_init();
-    char *end;
-    const char *delims = " :\n";
-    size_t ntokens;
-    size_t sz;
-    int ivec,j;
-    int index;
-    double value;
-    FILE *fp;
-    
-    nvecs = 0;
-    nfeat = 0;
-    fprintf(stderr,"Reading Data file %s\n",opts->data);
-    fp = Fopen(opts->data,"r");
-    while (!feof(fp)) {
-        if (!getline(&buffer,&buffer_size,fp)) break;
-        if (buffer[0]=='#') continue;
-        ntokens = explode_string(buffer,delims,tokens);
-        if (ntokens==0) break;
-        if (ntokens%2) {
-            index = ntokens-2;
-            sz = atoi(tokens[index]);
-            if (sz > nfeat) nfeat=(int)sz; 
-        }else{
-            fprintf(stderr,"Format Error reading data file %s\n",opts->data);
-            exit(EXIT_FAILURE);
-        }
-        ++nvecs;
-    }
-    clearerr(fp);
-    rewind(fp);
-    fprintf(stderr,"# vecs = %ld # feat = %ld \n",nvecs,nfeat);
-    opts->nvecs =nvecs;
-    opts->nfeat =nfeat;
-    opts->y = (double*)Malloc(sizeof(double)*nvecs);
-    opts->vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
-    memset(opts->vecs,0x0,sizeof(double)*nvecs*nfeat);
-    ivec = 0;
-    while (!feof(fp)) {
-        if (!getline(&buffer,&buffer_size,fp)) break;
-        if (buffer[0]=='#') continue;
-        ntokens = explode_string(buffer,delims,tokens);
-        if (ntokens==0) break;
-        (opts->y)[ivec] = strtod(tokens[0],&end);
-        for (j=1;j<ntokens;j+=2) {
-            index = atoi(tokens[j]);
-            value = strtod(tokens[j+1],&end);
-            (opts->vecs)[ivec*nfeat + index-1] = value;        
-        }
-        ++ivec;
-    }
-    fclose(fp);    
-    tokens_free(tokens);
-    free(buffer);
-}    
 
 inline void svm_options_read_model_file(svm_options_t* opts)
 {
@@ -91,18 +12,18 @@ inline void svm_options_read_model_file(svm_options_t* opts)
     size_t nrd;
     /// classifying task read in model file
     FILE *fp = Fopen(opts->model,"r");
-    fread((void*)&nvecs,1,sizeof(int),fp);
-    fread((void*)&nfeat,1,sizeof(int),fp);
-    fread((void*)&(opts->ktype),1,sizeof(int),fp);
-    fread((void*)&(opts->kpow),1,sizeof(int),fp);
-    fread((void*)&(opts->kc1),1,sizeof(double),fp);
-    fread((void*)&(opts->kc2),1,sizeof(double),fp);
-    fread((void*)&(opts->bias),1,sizeof(double),fp);
-    fread((void*)&(opts->scale_kernel),1,sizeof(int),fp);
+    Fread((void*)&nvecs,sizeof(int),1,fp);
+    Fread((void*)&nfeat,sizeof(int),1,fp);
+    Fread((void*)&(opts->ktype),sizeof(int),1,fp);
+    Fread((void*)&(opts->kpow),sizeof(int),1,fp);
+    Fread((void*)&(opts->kc1),sizeof(double),1,fp);
+    Fread((void*)&(opts->kc2),sizeof(double),1,fp);
+    Fread((void*)&(opts->bias),sizeof(double),1,fp);
+    Fread((void*)&(opts->scale_kernel),sizeof(int),1,fp);
     vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
     y = (double*)Malloc(sizeof(double)*nvecs);
-    fread((void*)y,nvecs,sizeof(double),fp);
-    fread((void*)vecs,nvecs*nfeat,sizeof(double),fp);
+    Fread((void*)y,sizeof(double),nvecs,fp);
+    Fread((void*)vecs,sizeof(double),nvecs*nfeat,fp);
     fclose(fp);
     opts->nfeat = nfeat;
     opts->nvecs = nvecs;
@@ -119,40 +40,19 @@ inline void svm_options_read_model_file(svm_options_t* opts)
 }
 
 inline void svm_options_translate(svm_options_t* options) {
-    int i,j;
-    char * data = options->data;
-    char * new_name;
-    int nvecs;
-    int nfeat;
     char *pstr = strstr(options->data,".tdo");
 
-    svm_options_read_data_file(options);
-    nfeat = options->nfeat;
-    nvecs = options->nvecs;
     fprintf(stderr,"translating\n");
-    fprintf(stderr,"# vecs = %ld\n",options->nvecs);
-    fprintf(stderr,"# feat = %ld\n",options->nfeat);
-    if (!pstr) {        
-        /* data is not a tdo file */
-        fprintf(stderr," %s is not a tdo file\n",options->data);
-        new_name = strdup(options->data);
-        new_name = strcat(new_name,".tdo");
-        fprintf(stderr,"new name is %s\n",new_name);
-        write_tdo_file(new_name,nvecs,nfeat,options->y,options->vecs);
+    fprintf(stderr,"data file is %s\n",options->data);
+    fprintf(stderr,"out file is %s\n",options->out);
+    svm_options_read_data_file(options);
+    if (strstr(options->data,".tdo")!=0x0) {
+        /* data file is a tdo file, write out libsvm file */
+        write_libsvm_file(options->out,options->nvecs,options->nfeat,options->y,options->vecs);
     }else{
-        /* data is a tdo file */
-        fprintf(stderr," %s is a tdo file\n",options->data);
-        ptrdiff_t p = pstr-data;
-        new_name = strndup(options->data,p);
-        fprintf(stderr,"new name is %s\n",new_name);
-        write_libsvm_file(new_name,nvecs,nfeat,options->y,options->vecs);
-    }
-    {
-        size_t sz = sizeof(double)*(nvecs+nvecs*nfeat)+sizeof(int)*2;
-        fprintf(stderr,"tdo file size is %ld\n",sz);
+        write_tdo_file(options->out,options->nvecs,options->nfeat,options->y,options->vecs);
     }
 }
-
 
 int find_substring(const char *str,const char *sub)
 {
@@ -166,17 +66,14 @@ inline void svm_options_read_data_file(svm_options_t* opts) {
     int nf;
     int i;
     char * px= strstr(opts->data,".tdo");
-    
+
     fprintf(stderr,"reading data file %s\n",opts->data);
-     
-    if (px==0x0)  {
-        fprintf(stderr,"libsvm data file\n");
-        svm_options_read_libsvm_file(opts);
+    if (px) {
+        read_tdo_file(opts->data,&(opts->nvecs),&(opts->nfeat),&(opts->y),&(opts->vecs));
+    }else{
+        read_libsvm_file(opts->data,&(opts->nvecs),&(opts->nfeat),&(opts->y),&(opts->vecs));
     }
-    else {
-        fprintf(stderr,"tdo data file\n");
-        svm_options_read_tdo_file(opts);
-    }
+    fprintf(stderr,"read data file %s\n",opts->data);
     nt = 0;
     nf = 0;
     for (int i=0;i<opts->nvecs ;++i) {
@@ -205,7 +102,7 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
     program_options_insert(popts,"kernel_cof2","second parameter for kernel function","0.0");
     program_options_insert(popts,"cost","cost parameter for soft margin training","1.0");
     program_options_insert(popts,"eps","convergence parameter for training","1.e-12");
-    program_options_insert(popts,"nthreads","number of threads","1");
+    program_options_insert(popts,"nthreads","number of threads","0");
     program_options_insert(popts,"cache_size","number of rows to cache","-1");
     program_options_insert(popts,"scale","scale kernel so diagonal elements are 1","true");
     program_options_insert(popts,"config","config file for options",0x0);
@@ -234,7 +131,7 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
         opts->task=0;
         svm_options_read_data_file(opts);
         if (opts->csize == -1) opts->csize = opts->nvecs/6;
-        if (opts->csize == 0) opts->csize = opts->nvecs;
+        if (opts->csize == 0) opts->csize = 0;
         if (opts->max_its==0) opts->max_its = opts->nvecs;
     } else {
         if (strcmp(task_str,"classify")==0) {
@@ -249,6 +146,20 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
             }
         }
     }
+#ifdef _OPENMP
+    if (opts->nths) {
+#pragma omp parallel 
+        {
+            omp_set_num_threads(opts->nths);
+        }
+    }else{
+#pragma omp parallel  
+        {
+            if (omp_get_thread_num()==0) opts->nths = omp_get_num_threads();
+        }    
+    }
+#endif
+
     fprintf(stderr,"svm options are:\n");
     svm_options_write(opts,stderr);
     program_options_free(popts);
@@ -267,26 +178,23 @@ void svm_options_write(svm_options_t* opts,FILE *fp)
     size_t vecs_size = opts->nvecs;
     size_t kmat_size = opts->csize;
     size_t nfeat_ = opts->nfeat;
-
-    double vsize = (sizeof(double)*vecs_size * nfeat_) / 1048576.0;
-    double ksize = (sizeof(double)*vecs_size * kmat_size)/1048576.0;
+    double vsize,ksize;
     fprintf(fp,"svm options\n");
     fprintf(fp,"data file = %s\n",opts->data);
     fprintf(fp,"model file= %s\n",opts->model);
     fprintf(fp,"output    = %s\n",opts->out);
-    fprintf(fp,"nthreads  = %d\n",opts->nths);
-    fprintf(fp,"# vectors  = %d \n",opts->nvecs);
-    fprintf(fp,"# features = %d \n",opts->nfeat);
-    fprintf(fp,"# threads  = %d \n",opts->nths);
-    if (opts->task!=2) {
+    fprintf(fp,"# nthreads  = %d\n",opts->nths);
+    fprintf(fp,"task        = %d\n",opts->task);
+    if (opts->task==0) {
+        vsize = (sizeof(double)*vecs_size * nfeat_) / 1048576.0;
+        ksize = (sizeof(double)*vecs_size * kmat_size)/1048576.0;
+        fprintf(fp,"# vectors  = %d \n",opts->nvecs);
+        fprintf(fp,"# features = %d \n",opts->nfeat);
         fprintf(fp,"scale kernel= %d\n",opts->scale_kernel);
         fprintf(fp,"kernel type = %d\n",opts->ktype);
         fprintf(fp,"kernel pow  = %d\n",opts->kpow);
         fprintf(fp,"kernel c1   = %le\n",opts->kc1);
         fprintf(fp,"kernel c2   = %le\n",opts->kc2);
-    }
-    fprintf(fp,"task        = %d\n",opts->task);
-    if (opts->task==0) {
         fprintf(fp,"cache size  = %lu\n",opts->csize);
         fprintf(fp,"eps         = %le\n",opts->eps);
         fprintf(fp,"cost        = %le\n",opts->cost);
@@ -294,10 +202,6 @@ void svm_options_write(svm_options_t* opts,FILE *fp)
         fprintf(stderr,"vecs size   = %le MB\n",vsize);
         fprintf(stderr,"kmat size   = %le MB\n",ksize);
     } 
-    if (opts->task==1) {
-        fprintf(fp,"bias        = %lf \n",opts->bias);
-        fprintf(stderr,"vecs size   = %le MB\n",vsize);
-    }
     return;
 }
 
