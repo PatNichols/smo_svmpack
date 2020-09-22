@@ -192,7 +192,7 @@ svm_options::svm_options(int argc,char **argv)
     popts.insert("kernel_cof2","second parameter for kernel function","0.0");
     popts.insert("cost","cost parameter for soft margin training","1.0");
     popts.insert("eps","convergence parameter for training","1.e-12");
-    popts.insert("nthreads","number of threads","1");
+    popts.insert("nthreads","number of threads","0");
     popts.insert("cache_size","number of rows to cache","-1");
     popts.insert("scale","scale kernel so diagonal elements are 1","true");
     popts.insert("config","config file for options","");
@@ -235,8 +235,26 @@ svm_options::svm_options(int argc,char **argv)
             }
         }
     }
+    if (nths) {
+        std::string s=std::to_string(nths);
+        os.setenv("OMP_NUM_THREADS",s.c_str());
+    } else{
+        const char *s_str = os.getenv("OMP_NUM_THREADS"));
+        if (s_str) {
+            nths = std::stoi(std::string(s_str));
+        }else{
+            int id,n,nx[1];
+#pragma omp parallel private(n,id) shared(nx)
+            {
+                n = omp_get_num_threads();
+                id = omp_get_thread_num();
+                if (id==0) nx[0] = n;
+            }
+            nths = nx[0];
+        }    
+    }
     std::cerr << "svm options are:\n";
-    write_file(stderr);
+    write_file(stderr); 
 }
 
 

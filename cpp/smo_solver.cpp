@@ -79,13 +79,13 @@ void smo_solver::find_gap() noexcept {
     gap_timer.start();
 #endif
 
-    #pragma omp parellel for  private(k) reduction(+,asum) reduction(+,fsum)
+#pragma omp parallel for  private(k) reduction(+:asum) reduction(+:fsum)
     for ( k = 0; k < nvecs; ++k ) {
         asum += alfa[k];
         fsum += alfa[k] * grad[k] * y[k];
     }
-    fsum = ( fsum + asum ) / 2.0;
-    #pragma omp parellel for  private(k) reduction(+,bias) reduction(+,nfree)
+    fsum = ( fsum + asum ) * 0.5;
+#pragma omp parallel for  private(k) reduction(+:bias) reduction(+:nfree)
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] == 0 ) {
             bsum += grad[k] ;
@@ -96,9 +96,9 @@ void smo_solver::find_gap() noexcept {
 ///// if nfree = 0 then bias = 0 so no need for an else here
     if ( nfree )
         bsum /= nfree;
-    #pragma omp parellel for  private(k) reduction(+,csum)
+#pragma omp parallel for  private(k) reduction(+:csum)
     for ( k = 0; k < nvecs; ++k ) {
-        csum += fmax( 0, ( y[k] * ( grad[k] + bsum ) ) );
+        csum += fmax( 0., ( y[k] * ( grad[k] + bsum ) ) );
     }
     csum *= cost;
     gap = ( csum + asum - fsum - fsum ) / ( 1.0 + asum + csum - fsum );
@@ -189,7 +189,7 @@ int smo_solver::take_step ( int imax, int imin ) noexcept {
         {
             const double da1 = ( y[imax] ) * ( a1 - ai );
             const double da2 = ( y[imin] ) * ( a2 - aj );
-            #pragma omp parellel for  private(k,da1,da2)  schedule(static,1000)
+#pragma omp parallel for  private(k) firstprivate(da1,da2)
             for ( k = 0; k < nvecs; ++k ) {
                 grad[k] -= ( da1 * qmax[k] + da2 * qmin[k] );
             }
@@ -234,11 +234,11 @@ int smo_solver::find_step() noexcept {
     the_min.value = max0;
     the_min.index = -1;
 
-    #pragma omp declare reduction(MaxPair:IndexPair:omp_out.Max(omp_in)) initializer(omp_priv=IndexPair(-1.e300,-1))
+#pragma omp declare reduction(MaxPair:IndexPair:omp_out.Max(omp_in)) initializer(omp_priv=IndexPair(-1.e300,-1))
 
-    #pragma omp declare reduction(MinPair:IndexPair:omp_out.Min(omp_in)) initializer(omp_priv=IndexPair(1.e300,-1))
+#pragma omp declare reduction(MinPair:IndexPair:omp_out.Min(omp_in)) initializer(omp_priv=IndexPair(1.e300,-1))
 
-    #pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min) schedule(static,1000)
+#pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min) schedule(static,1000)
     for ( k = 0; k < nvecs; ++k ) {
         ys = y[k] * status[k];
         gx = grad[k];
@@ -317,7 +317,7 @@ void smo_solver::output_model_file(const svm_options& opts) {
     double fx;
     const double *scal = kmatrix.keval.scale;
     double *v;
-    #pragma omp parellel for  private(k) reduction(+,nsv) reduction(+,nbnd)
+#pragma omp parallel for  private(k) reduction(+:nsv) reduction(+:nbnd)
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] >= 0 ) {
             ++nsv;
