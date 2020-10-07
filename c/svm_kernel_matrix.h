@@ -1,6 +1,6 @@
 #ifndef SVM_KERNEL_MATRIX_H
 #define SVM_KERNEL_MATRIX_H
-
+#include "svm_fun.h"
 #include "svm_options.h"
 
 typedef struct {

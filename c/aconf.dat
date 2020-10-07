@@ -1,5 +1,6 @@
 kernel_cof1 0.05
 cost 2.5
 eps 1.e-8
+cache_size 5000
 
 

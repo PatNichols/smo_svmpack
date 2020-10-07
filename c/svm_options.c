@@ -1,44 +1,6 @@
 #include "svm_options.h"
 
 
-
-inline void svm_options_read_model_file(svm_options_t* opts)
-{
-    double *y;
-    double *vecs;
-    int nvecs;
-    int nfeat;
-    int nf,nt,i;
-    size_t nrd;
-    /// classifying task read in model file
-    FILE *fp = Fopen(opts->model,"r");
-    Fread((void*)&nvecs,sizeof(int),1,fp);
-    Fread((void*)&nfeat,sizeof(int),1,fp);
-    Fread((void*)&(opts->ktype),sizeof(int),1,fp);
-    Fread((void*)&(opts->kpow),sizeof(int),1,fp);
-    Fread((void*)&(opts->kc1),sizeof(double),1,fp);
-    Fread((void*)&(opts->kc2),sizeof(double),1,fp);
-    Fread((void*)&(opts->bias),sizeof(double),1,fp);
-    Fread((void*)&(opts->scale_kernel),sizeof(int),1,fp);
-    vecs = (double*)Malloc(sizeof(double)*nvecs*nfeat);
-    y = (double*)Malloc(sizeof(double)*nvecs);
-    Fread((void*)y,sizeof(double),nvecs,fp);
-    Fread((void*)vecs,sizeof(double),nvecs*nfeat,fp);
-    fclose(fp);
-    opts->nfeat = nfeat;
-    opts->nvecs = nvecs;
-    opts->vecs = vecs;
-    opts->y = y;
-    nt = 0;
-    nf = 0;
-    for (i=0;i<nvecs;++i) {
-        if (y[i] > 0.0) ++nt;
-        else ++nf;
-    }
-    fprintf(stderr," model file # true = %ld # false = %ld\n",nt,nf);
-    return;
-}
-
 inline void svm_options_translate(svm_options_t* options) {
     char *pstr = strstr(options->data,".tdo");
 
@@ -131,12 +93,10 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
         opts->task=0;
         svm_options_read_data_file(opts);
         if (opts->csize == -1) opts->csize = opts->nvecs/6;
-        if (opts->csize == 0) opts->csize = 0;
         if (opts->max_its==0) opts->max_its = opts->nvecs;
     } else {
         if (strcmp(task_str,"classify")==0) {
             opts->task=1;
-            svm_options_read_model_file(opts);
         } else {
             if (strcmp(task_str,"translate")==0) {
                 opts->task=2;
@@ -150,7 +110,7 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
     if (opts->nths) {
 #pragma omp parallel 
         {
-            omp_set_num_threads(opts->nths);
+            if (omp_get_thread_num()==0) omp_set_num_threads(opts->nths);
         }
     }else{
 #pragma omp parallel  

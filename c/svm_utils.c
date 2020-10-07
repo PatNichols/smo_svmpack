@@ -1,4 +1,4 @@
-#include "utils.h"
+#include "svm_utils.h"
 
 //#define SVM_ALIGN_ALLOC
 
@@ -59,6 +59,7 @@ inline size_t Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
 {
     ssize_t wr = fwrite(ptr,osize,cnt,fp);
     if (wr!=cnt) {
+        fprintf(stderr,"file error %d\n",ferror(fp));
         parse_error("Fwrite did not write all elements");
     }
     return wr;
@@ -86,25 +87,21 @@ ssize_t Getline(char **line_ptr,size_t *line_size,FILE *fp)
 
 inline char ** tokens_init() {
     int i;
-    char ** tokens = (char**)Malloc(MAX_TOKENS*sizeof(char*));
-    for (i=0; i<MAX_TOKENS; ++i) tokens[i] = (char*)Malloc(MAX_LINE_SIZE);
+    char ** tokens = (char**)Malloc(SVM_MAX_TOKENS*sizeof(char*));
+    for (i=0; i<SVM_MAX_TOKENS; ++i) 
+        tokens[i] = (char*)Malloc(SVM_MAX_LINE_SIZE);
     return tokens;
 }
 
 inline void tokens_free(char **tokens)
 {
     int i;
-    for (i=MAX_TOKENS; i>0;) {
+    for (i=SVM_MAX_TOKENS; i>0;) {
         --i;
         free(tokens[i]);
     }
     free(tokens);
 }
-
-inline char * string_alloc() {
-    return (char*)Malloc(MAX_LINE_SIZE);
-}
-
 
 inline int explode_string(char *str,const char *delims,char **tokens)
 {
@@ -115,6 +112,10 @@ inline int explode_string(char *str,const char *delims,char **tokens)
     for ( ptr = strtok_r(str,delims,&last); ptr; ptr=strtok_r(NULL,delims,&last)) {
         strcpy(tokens[cnt],ptr);
         ++cnt;
+        if (cnt == SVM_MAX_TOKENS) {
+            fprintf(stderr,"token is string exceed max tokens\n");
+            exit(EXIT_FAILURE);
+        }
     }
     return cnt;
 }
@@ -126,11 +127,10 @@ inline int parse_bool(char *str)
     if (slen) {
         if (str[0]=='F' || str[0]=='f' || str[0]=='0') return 0;
     } else {
-        return 0;
+        return -1;
     }
     return 1;
 }
-
 
 inline void parse_error(const char *mess)
 {
@@ -144,8 +144,7 @@ inline void quit_error(const char *mess) {
 }
 
 
-void write_tdo_file(const char *file_name,int nvecs,int nfeat,
-    const double *y,const double *vecs)
+void write_tdo_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs)
 {
     FILE *fp;    
     fp = Fopen(file_name,"w");
@@ -157,8 +156,7 @@ void write_tdo_file(const char *file_name,int nvecs,int nfeat,
 }
 
 
-void write_libsvm_file(const char *file_name,int nvecs,int nfeat,
-    const double *y,const double *vecs)
+void write_libsvm_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs)
 {	
     int i,j;
     int index;
@@ -170,46 +168,35 @@ void write_libsvm_file(const char *file_name,int nvecs,int nfeat,
         else iy=-1;
         fprintf(fp," %d\n",iy);
         for (j=0;j<nfeat;++j) {
-            value = vecs[j+i*nfrat];
-            if (fabs(value) > 1.e-14)
             index = j + 1;
-            fprintf(fp," %d:%lg",index,value);
+            fprintf(fp," %d:%lg",index,vecs[j+i*nfeat]);
         }
         fprintf(fp,"\n");
     }
     fclose(fp);
+    /* free buffer and tokens */
     return;
 }
 
 void read_tdo_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs)
 {
     int nv,nf;
-    double *yx;
-    double *vecsx;
     FILE *fp = Fopen(file_name,"r");
-    fprintf(stderr,"opened file\n");
     Fread((void*)&nv,sizeof(int),1,fp);
-    fprintf(stderr,"read nv = %d\n",nv);
     Fread((void*)&nf,sizeof(int),1,fp);
-    fprintf(stderr,"read nv = %d nf = %d\n",nv,nf);
-    yx = (double*)Malloc(sizeof(double)*nv);
-    vecsx = (double*)Malloc(sizeof(double)*nv*nf);
-    fprintf(stderr,"reading vecs and y nv = %d nf = %d\n",nv,nf);
-    Fread((void*)yx,sizeof(double),nv,fp);
-    fprintf(stderr,"read y\n");
-    Fread((void*)vecsx,sizeof(double),nv*nf,fp);
-    fprintf(stderr,"read vecs\n");
+    *y = (double*)Malloc(sizeof(double)*nv);
+    *vecs = (double*)Malloc(sizeof(double)*nv*nf);
+    Fread((void*)*y,sizeof(double),nv,fp);
+    Fread((void*)*vecs,sizeof(double),nv*nf,fp);
     *nvecs = nv;
     *nfeat = nf;
-    *vecs = vecsx;
-    *y = yx;
     fclose(fp);
 }
 
 void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs)
 {
     ssize_t nrd;
-    size_t line_size = MAX_LINE_SIZE;
+    size_t line_size = 512;
     int ntokens;
     int i,j;
     long index;
@@ -266,4 +253,3 @@ void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,dou
     tokens_free(tokens);
     free(sline);
 }
-

@@ -1,10 +1,10 @@
-
-
-#include "utils.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "svm_utils.h"
 #include "program_options.h"
 #include "svm_options.h"
 #include "smo_solver.h"
-#include "svm_classify.h"
+#include "svm_model.h"
 
 int main(int argc,char **argv)
 {
@@ -17,7 +17,7 @@ int main(int argc,char **argv)
         break;
     case 1:
         fprintf(stderr,"Classify\n");
-        svm_classify(options);
+        svm_model_classify(options);
         break;
     case 2:
         fprintf(stderr,"Translating\n");
@@ -25,7 +25,9 @@ int main(int argc,char **argv)
         break;
     default:
         fprintf(stderr,"No known task %d\n",options->task);
+        svm_options_free(options);
+        return EXIT_FAILURE;
     }
     svm_options_free(options);
-    return 0;
+    return EXIT_SUCCESS;
 }

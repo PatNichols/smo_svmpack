@@ -29,14 +29,14 @@ inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
         switch (eval->ktype) {
         case 0:
             for (i=0; i<nvecs; ++i) {
-                v = eval0(vecs+i*nfeat,vecs+i*nfeat,nfeat);
+                v = svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat);
                 eval->scale[i] = 1./sqrt(v);
             }
             break;
         case 1:
             for (i=0; i<nvecs; ++i) {
-                v = c1*eval0(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2;
-                v = dpowi(v,eval->kpow);
+                v = c1*svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2;
+                v = svm_powi(v,eval->kpow);
                 eval->scale[i] = 1./sqrt(v);
             }
             break;
@@ -47,7 +47,7 @@ inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
             break;
         case 3:
             for (i=0; i<nvecs; ++i) {
-                v = tanh( c1*eval0(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2 );
+                v = tanh( c1*svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2 );
                 eval->scale[i] = 1./sqrt(v);
             }
             break;
@@ -86,11 +86,11 @@ inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
     switch (eval->ktype) {
     case 0:
 #pragma omp parallel for private(i,s1)
-        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*eval0(v1,vecs+i*nfeat,nfeat);
+        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*svm_dot(v1,vecs+i*nfeat,nfeat);
         return;
     case 1:
 #pragma omp parallel for private(i,s1)
-        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*dpowi(c1*eval0(v1,vecs+i*nfeat,nfeat)+c2,kpow);
+        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*svm_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
         return;
     case 2:
 #pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs)
@@ -106,7 +106,7 @@ inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
         return;
     case 3:
 #pragma omp parallel for private(i)
-        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*tanh(c1*eval0(v1,vecs+i*nfeat,nfeat)+c2);
+        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*tanh(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2);
         return;
     }
 }
@@ -151,42 +151,41 @@ inline svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
 inline void svm_kernel_matrix_get_rows(svm_kernel_matrix_t *kmat,
 int imax,int imin,double **rmax,double **rmin)
 {
-    int i,last,imax_f,imin_f;
-    int *kindex = kmat->cache_index;
+    int i,imax_f,imin_f;
+    int *cache_index = kmat->cache_index;
     double *krows = kmat->cache_row;
     int nvecs = kmat->nvecs;
-    int nsz= kmat->nsize;
+    int last = kmat->last;
     int cache_size = kmat->csize;
     if (cache_size < nvecs) {
         imax_f = -1;
         imin_f = -1;
-#pragma omp parallel for private(i) reduction(max:imax_f) reduction(min:imin_f)
+#pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f)
         for (i=0; i< cache_size; ++i) {
-            if (kindex[i]==imax) imax_f = i;
-            if (kindex[i]==imin) imin_f = i;
+            if (cache_index[i]==imax) imax_f = i;
+            if (cache_index[i]==imin) imin_f = i;
         }
         if (imax_f>=0) {
             *rmax = krows + imax_f * nvecs;
         }else{
         // if we get here we didn't find row in cache
-            if (imin_f == kmat->last) kmat->last = (kmat->last+1)%cache_size;
-            last = kmat->last;
+            if (imin_f == last) last = (last+1)%cache_size;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imax);
-            imax_f = last;
             *rmax = krows+last*nvecs;
-            kmat->cache_index[last] = imax;
-            kmat->last = (last + 1) % cache_size;
+            cache_index[last] = imax;
+            last = (last + 1) % cache_size;
         }
         if (imin_f>=0) {
             *rmin = krows + imin_f * nvecs;
         }else{
         // if we get here we didn't find row in cache
-            last = kmat->last;
+            if (imax_f == last) last = (last+1)%cache_size;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imin);
             *rmin = krows+last*nvecs;
-            kmat->cache_index[last] = imin;
-            kmat->last = (last + 1) % cache_size;
+            cache_index[last] = imin;
+            last = (last + 1) % cache_size;
         }
+        kmat->last = last;
         return;
     } else {
         *rmax = krows+imax*nvecs;

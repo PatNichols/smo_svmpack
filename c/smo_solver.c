@@ -32,7 +32,7 @@ smo_solver_t * smo_solver_init(svm_options_t *options) {
         (smo->grad)[i] = (smo->y)[i];
         (smo->status)[i] = -1;
     }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     smo->gap_timer = stopwatch_init();
     smo->find_timer = stopwatch_init();
     smo->step_timer = stopwatch_init();
@@ -44,7 +44,7 @@ smo_solver_t * smo_solver_init(svm_options_t *options) {
 
 void smo_solver_free(smo_solver_t *smo)
 {
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_free(smo->kmat_timer);
     stopwatch_free(smo->grad_timer);
     stopwatch_free(smo->step_timer);
@@ -103,9 +103,9 @@ void smo_solver_train(svm_options_t * options)
     }
     stopwatch_stop(timer);
     fprintf(stderr, "training time             = %le seconds\n",timer->elapsed_time);
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     fprintf(stderr, "step time                 = %le seconds\n",smo->step_timer->elapsed_time);
-    fprintf(stderr, "update time               = %le seconds\n",smo->find_timer->elapsed_time);
+    fprintf(stderr, "find step time            = %le seconds\n",smo->find_timer->elapsed_time);
     fprintf(stderr, "gap time                  = %le seconds\n",smo->gap_timer->elapsed_time);
     fprintf(stderr, "grad time                 = %le seconds\n",smo->grad_timer->elapsed_time);
     fprintf(stderr, "kmat time                 = %le seconds\n",smo->kmat_timer->elapsed_time);
@@ -128,7 +128,7 @@ void smo_solver_find_gap(smo_solver_t *smo) {
     const double *grad = smo->grad;
     const int *status = smo->status;
     const double *y = smo->y;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->gap_timer);
 #endif
 
@@ -158,7 +158,7 @@ void smo_solver_find_gap(smo_solver_t *smo) {
     smo->fun = fsum;
     smo->bias = bsum;
     fprintf(stderr,"asum = %lg csum = %lg\n",asum,csum);
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->gap_timer);
 #endif
 };
@@ -176,7 +176,7 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
     const double *qmax;
     const double *qmin;
     const double cost = smo->cost;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->kmat_timer);
 #endif
 #ifdef SVM_PARANOID
@@ -192,7 +192,7 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
     svm_kernel_matrix_get_rows(smo->kmatrix,imax,imin,smo->kmax,smo->kmin);
     qmax= *(smo->kmax);
     qmin= *(smo->kmin);
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->kmat_timer);
     stopwatch_start(smo->step_timer);
 #endif
@@ -214,27 +214,27 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
     a1 += ds * ( aj - a2 );
     if ( a1 > tau ) {
         if ( a1 < ( cost - tau ) ) {
-            st1 = 0x0;
+            st1 = 0;
         } else {
             a1 = cost;
             a2 = gam - ds * cost;
-            st1 = 0x1;
+            st1 = 1;
         }
     } else {
         a1 = zero;
         a2 = gam;
-        st1 = -0x1;
+        st1 = -1;
     }
     if ( a2 > tau ) {
         if ( a2 < ( cost - tau ) ) {
-            st2 = 0x0;
+            st2 = 0;
         } else {
-            st2 = 0x1;
+            st2 = 1;
         }
     } else {
-        st2 = -0x1;
+        st2 = -1;
     }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->step_timer);
 #endif
     if ( fabs ( a2 - aj ) > tau ) {
@@ -242,7 +242,7 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
         alpha[imin] = a2;
         status[imax] = st1;
         status[imin] = st2;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
         stopwatch_start(smo->grad_timer);
 #endif
         {
@@ -254,7 +254,7 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
                 grad[k] -= ( da1 * qmax[k] + da2 * qmin[k] );
             }
         }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
         stopwatch_stop(smo->grad_timer);
 #endif
         return 0;
@@ -323,7 +323,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
     int the_max_index;
     int the_min_index;
     int sz,xsz,nth,tid;   
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->find_timer);
 #endif
 #pragma omp parallel private(tid,nth,sz,xsz,k,i,ys) shared(max_val,min_val,max_index,min_index)
@@ -377,7 +377,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
             }
         }
     }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->find_timer);
 #endif
     if ( the_max_index != -1 || the_min_index != -1 ||
@@ -397,7 +397,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
     int *status = smo->status;
     index_pair_t * the_max = smo->index_max;
     index_pair_t * the_min = smo->index_min;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->find_timer);
 #endif
     the_max->value = -max0;
@@ -419,7 +419,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
             the_min = index_pair_min_value(the_min,grad[k],k);
         }
     }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->find_timer);
 #endif
     if ( the_max->index != -1 || the_min->index != -1 ||
@@ -446,7 +446,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
     double min_value;
     int max_index;
     int min_index;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->find_timer);
 #endif
     max_value = -max0;
@@ -454,7 +454,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
     min_value = max0;
     min_index = -1;
 
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_start(smo->find_timer);
 #endif
     for ( k = 0; k < smo->nvecs; ++k ) {
@@ -473,7 +473,7 @@ int smo_solver_find_step(smo_solver_t *smo) {
             }
         }
     }
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_stop(smo->find_timer);
 #endif
     if ( max_index != -1 || min_index != -1 ||
@@ -505,7 +505,8 @@ void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts) {
     FILE *fout;
     int k;
     
-#pragma omp parallel for  private(k) reduction(+:nsv) reduction(+:nbnd)
+#pragma omp parallel for  private(k) reduction(+:nsv) reduction(+:nbnd) \
+    reduction(+:nfsv) reduction(+:ntsv)
     for ( k = 0; k < nvecs; ++k ) {
         if ( smo->status[k] >= 0 ) {
             ++nsv;
@@ -515,14 +516,13 @@ void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts) {
         }
     }
 
-    fprintf(stderr,"# training vectors = %d\n",nvecs);
-    fprintf(stderr,"# suppoer vectors  = %d\n",nsv);
+    fprintf(stderr,"# training vectors      = %d\n",nvecs);
+    fprintf(stderr,"# support vectors       = %d\n",nsv);
     fprintf(stderr,"# bound support vectors = %d\n",nbnd);
     fprintf(stderr,"# true support vectors  = %d\n",ntsv);
     fprintf(stderr,"# false support vectors = %d\n",nfsv);
 
-    out = Fopen(opts->model,"w");
-    
+    out = Fopen(opts->model,"w");    
     Fwrite((void *)&nsv,sizeof(int),1,out);
     Fwrite((void *)&nfeat,sizeof(int),1,out);
     Fwrite((void *)&(opts->ktype),sizeof(int),1,out);
@@ -548,18 +548,18 @@ void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts) {
     fout = Fopen(opts->out,"w");
     for ( k = 0; k < nvecs; ++k ) {
         fx = ( smo->y[k] - smo->grad[k] - smo->bias );
-        if ( fx > 0 ) {
+        if ( fx >= 0 ) {
             if ( smo->y[k] > 0. ) ++ntp;
             else ++nfp;
         } else {
-            if ( smo->y[k] > 0. ) ++ntn;
-            else ++nfn;
+            if ( smo->y[k] > 0. ) ++nfn;
+            else ++ntn;
         }
         dtmp = smo->y[k];
         Fwrite((void*)&dtmp,sizeof(double),1,fout);
         Fwrite((void*)&fx,sizeof(double),1,fout);
     }
     fclose(fout);
-    analyze ( ntp, nfp, ntn, nfn );
+    analyze ( ntp, ntn, nfp, nfn );
 }
 

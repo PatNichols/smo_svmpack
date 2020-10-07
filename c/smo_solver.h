@@ -6,11 +6,12 @@
 #include <limits.h>
 
 #include "utils.h"
+#include "svm_fun.h"
 #include "svm_options.h"
 #include "svm_kernel_matrix.h"
 #include "stopwatch.h"
 
-#define USE_TIMERS 1
+#define SVM_USE_TIMERS 1
 
 struct index_pair_t {
     double value;
@@ -36,7 +37,7 @@ struct smo_solver_t {
     double **kmin;
     int nvecs;
     int maxits;
-#ifdef USE_TIMERS
+#ifdef SVM_USE_TIMERS
     stopwatch_t *kmat_timer;
     stopwatch_t *grad_timer;
     stopwatch_t *gap_timer;
