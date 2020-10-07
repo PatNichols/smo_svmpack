@@ -11,8 +11,11 @@
 void smo_solver_train(svm_options& options)
 {
     int r,k,iter,maxits,nvecs;
+    int end =0;
     double diff=0.0;
     double fold=0.0;
+    double bold=0.0;
+    double bias_diff = 0.0;
     stopwatch timer;
     timer.clear();
     smo_solver smo(options);
@@ -33,18 +36,27 @@ void smo_solver_train(svm_options& options)
         for ( k = 0; k < nvecs; ++k ) {
             r = smo.find_step();
             if ( r ) {
+                end = iter*nvecs + k;
                 fprintf(stderr," conv %d %d\n",iter,k);
                 break;
             }
         }
+        if (r==0) {
+            end = (iter+1)*nvecs;
+        }
         smo.find_gap();
         diff = smo.fun - fold;
         fold = smo.fun;
+        bias_diff = smo.bias - bold;
+        bold = smo.bias;
         fprintf(stderr, "Cycle          = %ld\n", iter );
+        fprintf(stderr, "Iteration      = %ld\n", end);
         fprintf(stderr, "obj. function  = %20.10lf\n", smo.fun );
         fprintf(stderr, "diff. obj fun  = %20.10le\n", diff );
         fprintf(stderr, "gap            = %20.10le\n", smo.gap );
-        fprintf(stderr, "bias           = %20.10le\n\n", smo.bias);
+        fprintf(stderr, "bias           = %20.10le\n", smo.bias);
+        fprintf(stderr, "diff in bias   = %20.10le\n", bias_diff);
+        fprintf(stderr, "\n");
         if ( r ) {
             fprintf(stderr, " converged! no more feasible step\n");
             break;
@@ -85,7 +97,7 @@ void smo_solver::find_gap() noexcept {
         fsum += alfa[k] * grad[k] * y[k];
     }
     fsum = ( fsum + asum ) * 0.5;
-#pragma omp parallel for  private(k) reduction(+:bias) reduction(+:nfree)
+#pragma omp parallel for  private(k) reduction(+:bsum) reduction(+:nfree)
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] == 0 ) {
             bsum += grad[k] ;
@@ -360,13 +372,13 @@ void smo_solver::output_model_file(const svm_options& opts) {
             if ( y[k] > 0. ) ++ntp;
             else ++nfp;
         } else {
-            if ( y[k] > 0. ) ++ntn;
-            else ++nfn;
+            if ( y[k] > 0. ) ++nfn;
+            else ++ntn;
         }
         dtmp = y[k];
         fout.write((char*)&dtmp,sizeof(double));
         fout.write((char*)&fx,sizeof(double));
     }
     fout.close();
-    analyze ( ntp, nfp, ntn, nfn );
+    analyze ( ntp, ntn, nfp, nfn );
 }

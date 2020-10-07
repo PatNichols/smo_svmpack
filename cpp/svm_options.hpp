@@ -6,6 +6,9 @@
 #include <cstring>
 #include "utils.hpp"
 #include "program_options.hpp"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 struct svm_options {
     double *vecs;

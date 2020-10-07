@@ -237,9 +237,9 @@ svm_options::svm_options(int argc,char **argv)
     }
     if (nths) {
         std::string s=std::to_string(nths);
-        os.setenv("OMP_NUM_THREADS",s.c_str());
+        setenv("OMP_NUM_THREADS",s.c_str(),1);
     } else{
-        const char *s_str = os.getenv("OMP_NUM_THREADS"));
+        const char *s_str = getenv("OMP_NUM_THREADS");
         if (s_str) {
             nths = std::stoi(std::string(s_str));
         }else{

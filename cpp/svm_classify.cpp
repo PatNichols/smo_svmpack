@@ -55,9 +55,9 @@ void svm_classify(svm_options& options)
                 }
             } else {
                 if (y[j]>= 0.) {
-                    ++tn;
-                }else{
                     ++fn;
+                }else{
+                    ++tn;
                 }
             }
             out.write((char*)&y[j],sizeof(double));
@@ -102,6 +102,6 @@ void svm_classify(svm_options& options)
     ctimer.stop();
     std::cerr << "ntp = " << ntp << " nfp " << nfp << " ntn " << ntn << " nfn " << nfn << "\n";
     std::cerr << "classification time = " << ctimer.time() << " seconds\n";
-    analyze(ntp,nfp,ntn,nfn);
+    analyze(ntp,ntn,nfp,nfn);
 }
 

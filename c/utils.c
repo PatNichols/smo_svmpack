@@ -327,6 +327,8 @@ void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,dou
     int iv;
     int nv = 0;
     long nf = 0;
+    double *vec_p;
+    double *y_p;
     char *end_ptr = 0x0;
     char **tokens = tokens_init();
     char *sline = (char*)Malloc(line_size);
@@ -354,16 +356,18 @@ void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,dou
     *nfeat = (int)nf;
     *y = (double*)Malloc(nv*sizeof(double));
     *vecs = (double*)Malloc(nv*nf*sizeof(double));
-    memset(*vecs,0x0,sizeof(double)*nv*nf);
+    vec_p = *vecs;
+    y_p = *y;
+    memset(vec_p,0x0,sizeof(double)*nv*nf);
     for (iv=0;iv<nv;++iv) {
         nrd = Getline(&sline,&line_size,fp);
         if (nrd==-1) break;
         ntokens = explode_string(sline,delims,tokens);
-        *y[iv] = strtoull(tokens[0],&end_ptr,10); 
+        y_p[iv] = strtod(tokens[0],&end_ptr); 
         for (itoken = 1;itoken < ntokens;itoken+=2) {
-            index = strtoul(tokens[itoken],&end_ptr,10);
+            index = strtoull(tokens[itoken],&end_ptr,10) - 1;
             value = strtod(tokens[itoken+1],&end_ptr);
-            *vecs[iv*nv+index-1] = value; 
+            vec_p[iv*nf+index] = value; 
         }
     }
     clearerr(fp);
