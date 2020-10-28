@@ -12,7 +12,43 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+
+#include "config.h"
 #define TAU 1.e-14
+
+
+template < typename Tp, std::size_t align_val = std::size_t(16) >
+struct aligned_allocator {
+    typedef Tp value_type;
+    typedef Tp* pointer;
+    typedef Tp& reference;
+    typedef const Tp* const_pointer;
+    typedef const Tp& const_reference;
+    typedef std::size_t size_type;
+    typedef std::ptrdiff_t difference_type;
+    
+    template < class U >
+    struct rebind {
+        typedef aligned_allocator<U> other;
+    };
+    
+    pointer allocate(size_type n) {
+        void * ptr;
+#ifdef HAVE_POSIX_MEMALIGN        
+        int e = posix_memalign(ptr,align_val,n*sizeof(value_type));
+#else
+        ptr = malloc(n*sizeof(Tp));
+#endif
+        if (ptr) return reinterpret_cast< pointer >(ptr);
+        std::cerr << "could not allocate " << n << " value_types of size " << sizeof(value_type) << "\n";
+        throw std::bad_alloc();
+    }
+    
+    void deallocate(pointer p) {
+        free(p);
+    }
+};
+
 
 void parse_error(const char *mess);
 void quit_error(const char *mess);

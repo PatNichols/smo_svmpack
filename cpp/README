@@ -1,0 +1,5 @@
+This a support vector machine program using sequential minimization optimization.
+To build:
+make all
+
+ 

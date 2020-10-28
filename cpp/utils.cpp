@@ -62,35 +62,6 @@ std::istream& Getline(std::istream& is,std::string& sline)
     exit(EXIT_FAILURE);
 }
 
-
-template < typename Tp, std::size_t align_val = std::size_t(16) >
-struct aligned_allocator {
-    typedef Tp value_type;
-    typedef Tp* pointer;
-    typedef Tp& reference;
-    typedef const Tp* const_pointer;
-    typedef const Tp& const_reference;
-    typedef std::size_t size_type;
-    typedef std::ptrdiff_t difference_type;
-    
-    template < class U >
-    struct rebind {
-        typedef aligned_allocator<U> other;
-    };
-    
-    pointer allocate(size_type n) {
-        void * ptr;
-        int e = posix_memalign(ptr,align_val,n*sizeof(value_type));
-        if (ptr) return reinterpret_cast< pointer >(ptr);
-        std::cerr << "could not allocate " << n << " value_types of size " << sizeof(value_type) << "\n";
-        throw std::bad_alloc();
-    }
-    
-    void deallocate(pointer p) {
-        free(p);
-    }
-};
-
 int explode_string(const std::string& sline,const std::string& delims,std::vector<std::string>& tokens)
 {
     tokens.clear();
