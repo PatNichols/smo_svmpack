@@ -1,7 +1,5 @@
 #include "svm_utils.h"
 
-//#define SVM_ALIGN_ALLOC
-
 void * Malloc(size_t n)
 {
 #ifdef HAVE_POSIX_MEMALIGN

@@ -1,5 +1,9 @@
 This a support vector machine program using sequential minimization optimization.
+This uses openmp, clock_gettime, and some other posix specific functions. Outside of macosx and linux, your mileage may vary.
+
 To build:
-make all
+./configure
+make
+
 
  
