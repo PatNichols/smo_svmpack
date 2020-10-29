@@ -4,7 +4,7 @@
 
 void * Malloc(size_t n)
 {
-#ifdef SVM_ALIGN_ALLOC
+#ifdef HAVE_POSIX_MEMALIGN
     size_t aln = 64; /* 256 byte width alignment */
     void *ptr;
     posix_memalign(&ptr,aln,n);
@@ -187,18 +187,12 @@ void read_tdo_file(const char *file_name,int *nvecs,int *nfeat,double **y,double
     double *yx;
     double *vecsx;
     FILE *fp = Fopen(file_name,"r");
-    fprintf(stderr,"opened file\n");
     Fread((void*)&nv,sizeof(int),1,fp);
-    fprintf(stderr,"read nv = %d\n",nv);
     Fread((void*)&nf,sizeof(int),1,fp);
-    fprintf(stderr,"read nv = %d nf = %d\n",nv,nf);
     yx = (double*)Malloc(sizeof(double)*nv);
     vecsx = (double*)Malloc(sizeof(double)*nv*nf);
-    fprintf(stderr,"reading vecs and y nv = %d nf = %d\n",nv,nf);
     Fread((void*)yx,sizeof(double),nv,fp);
-    fprintf(stderr,"read y\n");
     Fread((void*)vecsx,sizeof(double),nv*nf,fp);
-    fprintf(stderr,"read vecs\n");
     *nvecs = nv;
     *nfeat = nf;
     *vecs = vecsx;

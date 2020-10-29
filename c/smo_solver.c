@@ -544,6 +544,8 @@ void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts) {
         Fwrite((void*)v,sizeof(double),nfeat,out);
     }
     fclose(out);
+    fprintf(stderr,"kernel type = %d\n",opts->ktype);
+    
     fprintf(stderr,"wrote model file\n");
     fout = Fopen(opts->out,"w");
     for ( k = 0; k < nvecs; ++k ) {

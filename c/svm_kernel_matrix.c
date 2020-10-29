@@ -1,5 +1,64 @@
 #include "svm_kernel_matrix.h"
 
+double kern_powi(double x,int m)
+{
+    double w,y,z;
+    if (m<0) {
+        m = -m;
+        x = 1./x;
+    }
+    switch(m) {
+    case 0:
+        return 1.0;
+    case 1:
+        return x;
+    case 2:
+        return x*x;
+    case 3:
+        return x*x*x;
+    case 4:
+        y =x*x;
+        return y*y;
+    case 5:
+        y = x*x;
+        return y*y*x;
+    case 6:
+        y = x*x;
+        return y*y*y;
+    case 7:
+        y = x*x;
+        return y*y*y*x;
+    case 8:
+        y= x*x;
+        y= y*y;
+        return y*y;
+    case 9:
+        y = x*x;
+        y = y*y;
+        return y*y*x;
+    case 10:
+        y = x*x;
+        z = y*y;
+        z = y*y;
+        return z*y;
+    case 11:
+        y = x*x;
+        z = y*y;
+        z = y*y;
+        return z*y*x;
+    case 12:
+        y = x*x;
+        z = y*y*y;
+        return z*z;
+    default:
+        y = x*x;
+        z = y*y*y;
+        z = z*z;
+        return z*kern_powi(x,(m-12));
+    }
+    return 1.e300;
+}
+
 inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
 {
     int i;
@@ -36,7 +95,7 @@ inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
         case 1:
             for (i=0; i<nvecs; ++i) {
                 v = c1*svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2;
-                v = svm_powi(v,eval->kpow);
+                v = kern_powi(v,eval->kpow);
                 eval->scale[i] = 1./sqrt(v);
             }
             break;
@@ -90,7 +149,7 @@ inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
         return;
     case 1:
 #pragma omp parallel for private(i,s1)
-        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*svm_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
+        for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*kern_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
         return;
     case 2:
 #pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs)

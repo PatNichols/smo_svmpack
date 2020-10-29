@@ -19,7 +19,7 @@ inline void analyze(size_t ntp,size_t ntn,size_t nfp,size_t nfn)
     double dn=nneg;
     double dt=ntrue;
     double df=nfalse;
-    double acc = (dtp+dtn)/(dtp+dtn+dfp+dfn);
+    double acc = (dtp+dtn)/(dt+df);
     double sens = dtp/(dtp+dfn);
     double spec = dtn/(dtn+dfp);
     double prec = dtp/(dtp+dfp);

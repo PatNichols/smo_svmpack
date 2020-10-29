@@ -4,7 +4,7 @@
 
 void * Malloc(size_t n)
 {
-#ifdef SVM_ALIGN_ALLOC
+#ifdef HAVE_POSIX_MEMALIGN
     size_t aln = 64; /* 256 byte width alignment */
     void *ptr;
     posix_memalign(&ptr,aln,n);

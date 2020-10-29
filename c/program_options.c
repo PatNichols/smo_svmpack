@@ -211,7 +211,9 @@ inline void program_options_parse_config_file(program_options_t *opts,char *file
         ntokens = explode_string(buffer,delims,tokens);
         if (ntokens==0) continue;
         if (ntokens!=2) {
-            fprintf(stderr,"Error reading config file too many word on line\n");
+            fprintf(stderr,"Error reading config file too many words on line\n");
+            fprintf(stderr,"line = %s\n",buffer);
+            fprintf(stderr,"# tokens = %d\n",ntokens);
             exit(EXIT_FAILURE);
         }
         program_options_set_value(opts,tokens[0],tokens[1]);
