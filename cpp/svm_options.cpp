@@ -244,6 +244,7 @@ svm_options::svm_options(int argc,char **argv)
             nths = std::stoi(std::string(s_str));
         }else{
             int id,n,nx[1];
+#ifdef _OPENMP
 #pragma omp parallel private(n,id) shared(nx)
             {
                 n = omp_get_num_threads();
@@ -251,6 +252,9 @@ svm_options::svm_options(int argc,char **argv)
                 if (id==0) nx[0] = n;
             }
             nths = nx[0];
+#else
+            nths = 1;
+#endif            
         }    
     }
     std::cerr << "svm options are:\n";

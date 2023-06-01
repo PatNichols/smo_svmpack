@@ -4,7 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
-#include <omp.h>
+
 #include "stopwatch.hpp"
 #include "svm_kernel_matrix.hpp"
 #include "svm_options.hpp"
@@ -12,6 +12,7 @@
 #define USE_TIMERS
 
 #ifdef _OPENMP
+#include <omp.h>
 #define SVM_USE_OPENMP
 #endif
 

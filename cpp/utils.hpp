@@ -13,7 +13,6 @@
 #include <fstream>
 #include <sstream>
 
-#include "config.h"
 #define TAU 1.e-14
 
 
