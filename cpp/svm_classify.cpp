@@ -1,107 +1,106 @@
-
 #include "svm_classify.hpp"
-#define MAX_NTHDS 64
-
-void svm_classify(svm_options& options)
+namespace svmpack
 {
-    stopwatch ctimer;
-    ctimer.clear();
-    ctimer.start();
-    const double *vp;
-    int i;
-    double fx;
-    svm_data data(options.data);
-    const double *vecs = data.vecs;
-    const double *y = data.y;
-    int ntp=0;
-    int nfp=0;
-    int ntn=0;
-    int nfn=0;
-    int nth=0;
+void svm_validate(const svm_options& options)
+{
+    svm_model model(options.model);
+    long ntp(0);
+    long nfp(0);
+    long ntn(0);
+    long nfn(0);
 #ifdef _OPENMP
-    int tid,xsz,sz0,sz,j;
-    int fp,fn,tp,tn;
-    int narr[MAX_NTHDS][4];
-    int nth_i[1];
-
-#pragma omp parallel private(tid,nth,xsz,sz,j,i,vp,fx,fp,fn,tp,tn) shared(narr,nth_i,vecs,y)
+// read input and score in parallel
+    std::ifstream in(options.data);
+    if (!in) {
+        std::cerr << "could not open the input file " << options.data << "\n";
+        exit(-1);
+    }
+    in.read((char*)&nvecs,sizeof(int));
+    in.read((char*)&nfeat,sizeof(int));
+    size_t off1 = sizeof(int);
+    off1 = off1 + off1;
+#pragma omp parallel reduction(+,ntp) reduction(+,nfp) reduction(+,ntn) reduction(+,nfn)
     {
-        svm_model model(options.model);
-        tid = omp_get_thread_num();
-        nth = omp_get_num_threads();
-        if (tid==0) nth_i[0]=nth;
-        std::string my_file = options.out + "." + std::to_string(tid);
-        std::ofstream out(my_file.c_str());
-        xsz = data.nvecs % nth;
-        sz = data.nvecs / nth;
+        int tid = omp_thread_num();
+        int nth = omp_num_threads();
+        long sz0 = nvecs/nth;
+        long xsz = nvecs%nth;
+        // read in my labels 
+        long len = sz0;
+        long off = sz0 * tid;
         if (tid < xsz) {
-            sz += 1;
-            j = sz*tid;
-        } else {
-            j = sz*tid + xsz;
+            len += 1;
+            off += tid;
+        }else{
+            off += xsz;
         }
-        tp = 0;
-        tn = 0;
-        fp = 0;
-        fn = 0;
-        for (i=0; i<sz; ++i,++j) {
-            vp = vecs + j * data.nfeat;
-            fx = model.gensum(vecs+j*data.nfeat);
-            if (fx > 0.) {
-                if (y[j]>= 0.) {
-                    ++tp;
+        double * y = new double[len];
+        double * vecs = new double[nfeat*len];
+        size_t yoff = off1 + off * sizeof(double);
+        in.seekg(yoff,ios::beg);
+        in.read((char*)&y,sizeof(double)*len);
+        size_t voff = off1 + sizeof(double)*(nvecs + off * nfeat);
+        in.seekg((voff,ios::beg);        
+        in.read((char*)vecs,len*nfeat*sizeof(double));
+        for (auto k=0;k<len;++k)
+        {
+            double fx = model.score(vecs+k*nfeat);
+            double yx = y[k];
+            if ( fx > -1.e-16) {
+                if ( yx > -1.e-16) {
+                    ++ntp;
                 }else{
-                    ++fp;
+                    ++nfp;
                 }
-            } else {
-                if (y[j]>= 0.) {
-                    ++fn;
+            }else{
+                if ( yx > -1.e-16) {
+                    ++nfn;
                 }else{
-                    ++tn;
+                    ++ntn;
                 }
             }
-            out.write((char*)&y[j],sizeof(double));
-            out.write((char*)&fx,sizeof(double));
-        }
-        out.close();
-        narr[tid][0]=tp;
-        narr[tid][1]=tn;
-        narr[tid][2]=fp;
-        narr[tid][3]=fn;
+        }    
+        delete [] vecs;
+        delete [] y;
     }
-    int nsum = 0;
-    nth = nth_i[0];
-    ntp = nfp = ntn = nfn = 0;
-    for (i=0; i< nth; ++i) {
-        ntp += narr[i][0];
-        ntn += narr[i][1];
-        nfp += narr[i][2];
-        nfn += narr[i][3];
-        nsum += narr[i][0] + narr[i][1] + narr[i][2] + narr[i][3];
-    }
-    std::cerr << "nth = " << nth << "\n";
-    std::cerr << "nsum = " << nsum << "\n";
+    in.close();
 #else
-    svm_model model(options.out);
-    std::ofstream out;
-    out.open(options.out.c_str());
-    for (int i=0; i<data.nvecs; ++i) {
-        fx = model.gensum(vecs+i*data.nfeat);
-        if (fx >= 0.0) {
-            if (y[i]>=0.0) ++ntp;
-            else ++nfp;
-        } else {
-            if (y[i]>=0.0) ++ntn;
-            else ++nfn;
-        }
-        out.write((char*)&y[i],sizeof(double));
-        out.write((char*)&fx,sizeof(double));
+    svm_data data(options.data);
+    const double * vecs = data.vectors();
+    const double * y = data.labels();
+    int nvecs = data.num_vectors();
+    int nfeat = data.num_features();
+    int nfeat_mod = model.num_features();
+    // if the # of features of the model > # of features of data
+    // there will be a oob in score below
+    if ( nfeat < nfeat_mod) {
+        data.edit(nfeat_mod);
+        nfeat = nfeat_mod;
     }
-    out.close();
-#endif
-    ctimer.stop();
-    std::cerr << "ntp = " << ntp << " nfp " << nfp << " ntn " << ntn << " nfn " << nfn << "\n";
-    std::cerr << "classification time = " << ctimer.time() << " seconds\n";
+    for (auto k=0;k<nvecs;++k)
+    {
+        double fx = model.score(vecs+k*nfeat);
+        double yx = y[k];
+        if ( fx > -1.e-16) {
+            if ( yx > -1.e-16) {
+                ++ntp;
+            }else{
+                ++nfp;
+            }
+        }else{
+            if ( yx > -1.e-16) {
+                ++nfn;
+            }else{
+                ++ntn;
+            }        
+        }
+    }
+#endif    
     analyze(ntp,ntn,nfp,nfn);
 }
 
+void svm_classify(const svm_options& options)
+{
+    std::cerr << "classification not implemented yet!\n";
+}
+}

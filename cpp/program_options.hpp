@@ -164,7 +164,7 @@ inline std::ostream& operator << (std::ostream& os,const prog_opt& opt) {
 
 struct NoSuchOptionError: public std::exception {
     const char *what() noexcept {
-        return "No Such Option was found\n";
+        return std::string("No Such Option was found\n").c_str();
     }
 };
 

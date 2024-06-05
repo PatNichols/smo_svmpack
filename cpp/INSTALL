@@ -1,8 +1,8 @@
 Installation Instructions
 *************************
 
-   Copyright (C) 1994-1996, 1999-2002, 2004-2016 Free Software
-Foundation, Inc.
+   Copyright (C) 1994-1996, 1999-2002, 2004-2017, 2020-2021 Free
+Software Foundation, Inc.
 
    Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
@@ -141,8 +141,8 @@ Installation Names
 ==================
 
    By default, 'make install' installs the package's commands under
-'/Users/pnichols/homebrew/bin', include files under '/Users/pnichols/homebrew/include', etc.  You
-can specify an installation prefix other than '/Users/pnichols/homebrew' by giving
+'/usr/local/bin', include files under '/usr/local/include', etc.  You
+can specify an installation prefix other than '/usr/local' by giving
 'configure' the option '--prefix=PREFIX', where PREFIX must be an
 absolute file name.
 
@@ -225,7 +225,7 @@ order to use an ANSI C compiler:
 
 and if that doesn't work, install pre-built binaries of GCC for HP-UX.
 
-   HP-UX 'make' updates targets which have the same time stamps as their
+   HP-UX 'make' updates targets which have the same timestamps as their
 prerequisites, which makes it generally unusable when shipped generated
 files such as 'configure' are involved.  Use GNU 'make' instead.
 
@@ -246,7 +246,7 @@ these programs are available in '/usr/bin'.  So, if you need '/usr/ucb'
 in your 'PATH', put it _after_ '/usr/bin'.
 
    On Haiku, software installed for all users goes in '/boot/common',
-not '/Users/pnichols/homebrew'.  It is recommended to use the following options:
+not '/usr/local'.  It is recommended to use the following options:
 
      ./configure --prefix=/boot/common
 
@@ -301,7 +301,7 @@ configure again during the build, and the customized values of these
 variables may be lost.  In order to avoid this problem, you should set
 them in the 'configure' command line, using 'VAR=value'.  For example:
 
-     ./configure CC=/Users/pnichols/homebrew2/bin/gcc
+     ./configure CC=/usr/local2/bin/gcc
 
 causes the specified 'gcc' to be used as the C compiler (unless it is
 overridden in the site shell script).

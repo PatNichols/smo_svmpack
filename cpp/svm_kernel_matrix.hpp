@@ -1,247 +1,377 @@
 #ifndef SVM_KERNEL_MATRIX_HPP
 #define SVM_KERNEL_MATRIX_HPP
+#include <cmath>
+#include <cstdlib>
+#include <iostream>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "stopwatch.hpp"
 #include "svm_options.hpp"
+#include "svm_data.hpp"
 
-struct svm_kernel_eval {
-    const double * vecs;
+namespace svmpack
+{
+class svm_kernel_matrix
+{
+private:
+    double * cache_rows;
+    int64_t * cache_index;
+    int64_t cache_size;
+    int64_t last;
     double * scale;
+    const double * vecs;
     double c1,c2;
-    int kpow,ktype;
-    int nvecs,nfeat;
+    int ktype,kpow;
+    int nfeat;
+    int kscale;
+    int nvecs;
 
-    svm_kernel_eval(const svm_options& opts):vecs(opts.vecs),scale(0x0),c1(opts.kc1),c2(opts.kc2),
-        kpow(opts.kpow),ktype(opts.ktype),nvecs(opts.nvecs),nfeat(opts.nfeat)
+    void precompute_kernel_matrix() noexcept
     {
-        int i,j;
-        scale = new double[nvecs];
-        double sum,t;
-        const double *v1;
-        const double eps = 1.e-15;
-
-        if (ktype>3 || ktype<0) {
-            std::cerr << "Unknown Kernel Type " << ktype << "\n";
-            exit(EXIT_FAILURE);
-        }
-
-        if (ktype==2) c1 = -c1;
-        if (opts.scale_kernel) {
-            switch (ktype) {
+#pragma omp parallel for
+        for (int64_t i=0; i<nvecs; ++i)
+        {
+            const double * veci = vecs + i * nfeat;
+            const double& scali = scale[i];
+            double * row = cache_rows + i * nvecs;
+            switch (ktype)
+            {
             case 0:
-                #pragma omp parallel for private(i,j,sum,v1)
-                for (i=0; i<nvecs; ++i) {
-                    v1 = vecs + i * nfeat;
-                    sum =  0.;
-                    for (j=0; j<nfeat; ++j) sum+=v1[j]*v1[j];
-                    if (sum>eps) {
-                        scale[i] = 1.0/sqrt(sum);
-                    } else {
-                        scale[i] = 0.0;
-                    }
+                for (int64_t j=0; j<nvecs; ++j)
+                {
+                    row[j] = scali * scale[j] * (c1*dot(veci,vecs+j*nfeat)+c2);
                 }
                 break;
             case 1:
-                #pragma omp parallel for private(i,j,sum,v1)
-                for (i=0; i<nvecs; ++i) {
-                    v1 = vecs + i * nfeat;
-                    sum =  0.;
-                    for (j=0; j<nfeat; ++j) sum+=v1[j]*v1[j];
-                    sum = c1 * sum + c2;
-                    sum = dpowi(sum,kpow);
-                    if (sum>eps) {
-                        scale[i] = 1.0/sqrt(sum);
-                    } else {
-                        scale[i] = 0.0;
-                    }
+                for (int64_t j=0; j<nvecs; ++j)
+                {
+                    row[j] = scali * scale[j] * std::pow(c1*dot(veci,vecs+j*nfeat)+c2,kpow);
                 }
                 break;
             case 2:
-                #pragma omp parallel for private(i) schedule(static,512)
-                for (i=0; i<nvecs; ++i) {
-                    scale[i]=1.0;
+                for (int64_t j=0; j<nvecs; ++j)
+                {
+                    row[j] = std::exp(-(c1*dot(veci,vecs+j*nfeat)+c2));
                 }
                 break;
             case 3:
-                #pragma omp parallel for private(i,j,sum,v1)
-                for (i=0; i<nvecs; ++i) {
-                    v1 = vecs + i * nfeat;
-                    sum =  0.;
-                    for (j=0; j<nfeat; ++j) sum+=v1[j]*v1[j];
-                    sum = c1*sum+c2;
-                    sum = tanh(sum);
-                    if (sum>eps) {
-                        scale[i] = 1.0/sqrt(sum);
-                    } else {
-                        scale[i] = 0.0;
-                    }
+                for (int64_t j=0; j<nvecs; ++j)
+                {
+                    row[j] = scali * scale[j] * std::tanh(c1*dot(veci,vecs+j*nfeat)+c2);
                 }
                 break;
             }
-
-        } else {
-            for (i=0; i<nvecs; ++i) scale[i]=1.;
         }
-        std::cerr << "kernel eval inited ";
-        std::cerr << "ktype = " << ktype;
-        std::cerr << " nvecs = " << nvecs << " nfeat = " << nfeat << "\n";
     }
 
-    ~svm_kernel_eval()
+    void init_scale_factors() noexcept
     {
+        try
+        {
+            scale = new double[nvecs];
+        }
+        catch (...)
+        {
+            std::cerr << " can not allocate scale factors\n";
+            exit(-1);
+        }
+        if (ktype==2 || !kscale)
+        {
+#pragma omp parallel for
+            for (int i=0; i<nvecs; ++i) scale[i] = 1.0;
+        }
+        else
+        {
+            switch (ktype)
+            {
+            case 0:
+#pragma omp parellel for
+                for (int i=0; i<nvecs; ++i) scale[i] = c1 * dot(vecs+i*nfeat,vecs+i*nfeat) + c2;
+                break;
+            case 1:
+#pragma omp parellel for
+                for (int i=0; i<nvecs; ++i) scale[i] = std::pow(c1 * dot(vecs+i*nfeat,vecs+i*nfeat) + c2,kpow);
+                break;
+            case 2:
+#pragma omp parellel for
+                for (int i=0; i<nvecs; ++i) scale[i] = 1.0;
+                break;
+            case 3:
+#pragma omp parellel for
+                for (int i=0; i<nvecs; ++i) scale[i] = std::tanh(c1 * dot(vecs+i*nfeat,vecs+i*nfeat) + c2);
+                break;
+            case 4:
+                break;
+            }
+#pragma omp parellel for
+            for (int i=0; i<nvecs; ++i)
+            {
+                if ( scale[i] > 1.e-15)
+                {
+                    scale[i] = 1./sqrt(scale[i]);
+                }
+                else
+                {
+                    scale[i] = 1.;
+                }
+            }
+        }
+    }
+
+    std::size_t find_cache_size(int& precompute_kernel,
+                                std::size_t cache_mem,
+                                std::size_t cache_size_)
+    {
+        if (precompute_kernel)
+        {
+            if ( cache_mem )
+            {
+                std::size_t nv = (nvecs + 1 ) * sizeof(double);
+                std::size_t n_precomp = nvecs * nv;
+                if ( n_precomp > cache_mem)
+                {
+                    precompute_kernel = 0;
+                    cache_size = cache_mem/(nv);
+                    std::cerr << " cannot precomputed kernel!\n";
+                    std::cerr << " cache memory set to " << cache_mem << "\n";
+                    std::cerr << " memory needed is    " << n_precomp << "\n";
+                    std::cerr << " resetting cache size\n";
+                    precompute_kernel = 0;
+                }
+            }
+            else
+            {
+                cache_size_ = nvecs;
+                return cache_size;
+            }
+        }
+        if ( cache_mem )
+        {
+            std::size_t nv = (nvecs + 1 ) * sizeof(double);
+            cache_size_ = cache_mem/nv;
+        }
+        else
+        {
+            if ( cache_size == 0)
+            {
+                cache_size_ = nvecs/2;
+            }
+        }
+        return cache_size_;
+    }
+
+    void init_cache(int precompute_kernel,
+                    std::size_t cache_mem,
+                    std::size_t cache_size_)
+    {
+        cache_size = find_cache_size(precompute_kernel,cache_mem,cache_size_);
+        cache_rows = nullptr;
+        cache_index = nullptr;
+        if ( precompute_kernel )
+        {
+            try
+            {
+                cache_rows = new double[nvecs*nvecs];
+                cache_index = nullptr;
+                precompute_kernel_matrix();
+                return;
+            }
+            catch (...)
+            {
+                std::cerr << "cannot precompute kernel matrix : allocation failed\n";
+                precompute_kernel = 0;
+            }
+        }
+        if ( cache_mem) {
+            std::size_t sz = nvecs*sizeof(double) + sizeof(std::int64_t);
+            cache_size = cache_mem/sz;
+        }else{
+            if ( cache_size_ == 0) {
+                cache_size = nvecs/6;
+            }else{
+                cache_size = cache_size_;
+            }
+        }
+        while ( cache_size >= 2)
+        {
+            try
+            {
+                cache_rows = new double[cache_size*nvecs];
+                cache_index = new std::int64_t[cache_size];
+                break;
+            }
+            catch (...)
+            {
+                cache_size >>= 1;
+            }
+        }
+        if ( cache_size < 2)
+        {
+            // bare mininum for calculation is 2 rows
+            try
+            {
+                cache_rows = new double[2*nvecs];
+                cache_index = new std::int64_t[2];
+                cache_size = 2;
+            }
+            catch (...)
+            {
+                std::cerr << "cannot allocate enough memory for caclulation\n";
+                exit(-1);
+            }
+        }
+        std::cerr << "final # of rows to cache = " << cache_size << "\n";
+        if ( cache_index )
+        {
+#pragma omp parallel for
+            for (std::int64_t i=0; i<cache_size; ++i) cache_index[i] = -1;
+        }
+        last=0;
+    }
+
+    constexpr double dot(const double *x,const double *y) const noexcept
+    {
+        double s{0.0};
+        for (int i=0; i<nfeat; ++i) s += x[i] * y[i];
+        return s;
+    }
+    constexpr double diff_nrm2(const double *x,const double *y) const noexcept
+    {
+        double s{0.0};
+        for (int i=0; i<nfeat; ++i)
+        {
+            double t =  x[i] - y[i];
+            s += t * t;
+        }
+        return s;
+    }
+
+    const double * calcRow(std::int64_t irow,std::int64_t ivec) noexcept
+    {
+        const double * veci = vecs + ivec * nfeat;
+        const double scali = scale[ivec];
+        double * row = cache_rows+irow*nvecs;
+        switch ( ktype)
+        {
+        case 0:
+#pragma omp parallel for
+            for (int k=0; k<nvecs; ++k)
+            {
+                row[k] = scale[k] * scali * ( c1 * dot(veci,vecs+k*nfeat) + c2);
+            }
+            return row;
+        case 1:
+#pragma omp parallel for
+            for (int k=0; k<nvecs; ++k)
+            {
+                row[k] = scale[k] * scali * std::pow( c1 * dot(veci,vecs+k*nfeat) + c2,kpow);
+            }
+            return row;
+        case 2:
+#pragma omp parallel for
+            for (int k=0; k<nvecs; ++k)
+            {
+                row[k] = std::exp( -( c1 * diff_nrm2(veci,vecs+k*nfeat) + c2));
+            }
+            return row;
+        case 3:
+#pragma omp parallel for
+            for (int k=0; k<nvecs; ++k)
+            {
+                row[k] = scale[k] * scali * std::tanh( c1 * dot(veci,vecs+k*nfeat) + c2);
+            }
+            return row;
+        }
+        return nullptr;
+    }
+public:
+
+    svm_kernel_matrix(const svm_options& options,
+                      const svm_data& data):
+        cache_rows(nullptr),
+        cache_index(nullptr),
+        cache_size(options.cache_size),
+        last(0),
+        scale(nullptr),
+        vecs(data.vectors()),
+        c1(options.kc1),
+        c2(options.kc2),
+        ktype(options.ktype),
+        kpow(options.kpow),
+        kscale(options.kscale),
+        nfeat(data.num_features()),
+        nvecs(data.num_vectors())
+    {
+        if (ktype < 0 || ktype > 3)
+        {
+            std::cerr << "bad kernel type for svm_kernel_matrix\n";
+            std::cerr << "type = " << ktype << "\n";
+            exit(-1);
+        }
+        stopwatch ktimer;
+        ktimer.start();
+        init_scale_factors();
+        init_cache(options.cache_precompute,options.cache_mem,options.cache_size);
+        ktimer.stop();
+        std::cerr << "kernel matrix initialized\n";
+        std::cerr << "time = " << ktimer.time() << "\n";
+        std::cerr << "# of cached rows = " << cache_size << "\n";
+        std::cerr << "# of features    = " << nfeat << "\n";
+        std::cerr << "is scaled " << kscale << "\n";
+        std::cerr << "kernel type = " << ktype << "\n";
+        std::cerr << " c1 = " << c1 << " c2 = " << c2 << "\n";
+        if ( ktype == 1) {
+            std::cerr << " kpow = " << kpow << "\n";
+        }
+    }
+
+    ~svm_kernel_matrix()
+    {
+        if (cache_index) delete [] cache_index;
+        delete [] cache_rows;
         delete [] scale;
     }
 
-    void eval(double *row,int irow) {
-        int i,j;
-        double sum,t;
-        double s1= scale[irow];
-        const double *v1;
-        const double *v2;
-        switch (ktype) {
-        case 0:
-#pragma omp parallel for private(i,j,sum,v2,v1)
-            for (i=0; i<nvecs; ++i) {
-                v1 = vecs + irow*nfeat;
-                v2 = vecs + i * nfeat;
-                sum =  0.;
-                for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
-                row[i]=s1*scale[i]*sum;
-            }
-            return;
-        case 1:
-#pragma omp parallel for private(i,j,sum,v2,v1)
-            for (i=0; i<nvecs; ++i) {
-                v1 = vecs + irow*nfeat;
-                v2 = vecs + i * nfeat;
-                sum =  0.;
-                for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
-                sum = c1 * sum + c2;
-                sum = dpowi(sum,kpow);
-                row[i]=s1*scale[i]*sum;
-            }
-            return;
-        case 2:
-#pragma omp parallel for private(i,j,t,sum,v2,v1) schedule(static,512)
-            for (i=0; i<nvecs; ++i) {
-                v1 = vecs + irow*nfeat;
-                v2 = vecs + i*nfeat;
-                sum =  0.;
-                for (j=0; j<nfeat; ++j) {
-                    t = v1[j] - v2[j];
-                    sum+=t*t;
-                }
-                row[i] = exp( sum * c1 );
-            }
-            return;
-        case 3:
-#pragma omp parallel for private(i,j,sum,v1,v2)
-            for (i=0; i<nvecs; ++i) {
-                v1 = vecs + irow*nfeat;
-                v2 = vecs + i * nfeat;
-                sum =  0.;
-                for (j=0; j<nfeat; ++j) sum+=v1[j]*v2[j];
-                sum = c1*sum+c2;
-                sum = tanh(sum);
-                row[i]=s1*scale[i]*sum;
-            }
-            return;
-        }
-    }
-};
-
-struct svm_kernel_matrix {
-    svm_kernel_eval keval;
-    double *cache_rows;
-    int *cache_index;
-    int nsize;
-    int csize;
-    int nvecs;
-    int last;
-
-    svm_kernel_matrix(const svm_options& opts):keval(opts),
-        cache_rows(),cache_index(),csize(opts.csize),
-        nvecs(opts.nvecs),last(0)
+    const double * getRow(std::int64_t irow)
     {
-        int i;
-        if (csize==-1) {
-            csize = nvecs/6;
+        if ( cache_size == nvecs ) return cache_rows + irow * nvecs;
+        std::int64_t ifound = -1;
+#ifdef _OPENMP
+#pragma omp parallel for reduce(max:ifound)
+        for (std::int64_t i=0; i<cache_size; ++i)
+        {
+            if ( cache_index[i] == irow)
+            {
+                ifound = i;
+            }
         }
-        if (csize==0) {
-            cache_rows = new double[nvecs*nvecs];
-            stopwatch stimer;
-            stimer.clear();
-            for (i=0; i<nvecs; ++i) keval.eval(cache_rows+i*nvecs,i);
-            stimer.stop();
-            std::cerr << "time to compute whole kernel matrix is : " << stimer.time() << "\n";
-        } else {
-            cache_rows = new double[csize*nvecs];
-            cache_index = new int[csize];
-            for (i=0; i<csize; ++i) cache_index[i]=-1;
+#else
+        for (std::int64_t i=0; i<cache_size; ++i)
+        {
+            if ( cache_index[i] == irow)
+            {
+                ifound = i;
+                break;
+            }
         }
-        std::cerr << "kernel matrix initialized ";
-        std::cerr << "cache_size = " << csize << " nvecs = " << nvecs << " nfeat =" << opts.nfeat << "\n";
-    }
-    ~svm_kernel_matrix() {
-        delete [] cache_index;
-        delete [] cache_rows;
-    }
-    void get_row(int irow,double **R) {
-        if (csize==0) {
-            *R = cache_rows+irow*nvecs;
-            return;
+#endif
+        if (ifound != -1)
+        {
+            return cache_rows + ifound * nvecs;
         }
-        int i;
-        int ifnd = -1;
-#pragma omp parallel for private(i) reduction(max:ifnd)
-        for (i=0; i<csize; ++i) {
-            if (irow==cache_index[i]) ifnd = i;
-        }
-        if (ifnd>=0) {
-            *R = cache_rows+ifnd*nvecs;
-        } else {
-            *R = cache_rows + last * nvecs;
-            keval.eval(*R,irow);
-            cache_index[last] = irow;
-            last = (last + 1) % csize;
-        }
+        ifound = last;
+        cache_index[last] = irow;
+        ++last;
+        last %= cache_size;
+        return calcRow(ifound,irow);
     }
 
-    inline void get_row(int imax,int imin,double **rmax,double **rmin) {
-        int i;
-
-        if (csize == 0) {
-            *rmax = cache_rows + imax * nvecs;
-            *rmin = cache_rows + imin * nvecs;
-            return;
-        }
-        int imax_fnd = -1;
-        int imin_fnd = -1;
-#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,512)
-        for (i=0; i<csize; ++i) {
-            if (imax==cache_index[i]) imax_fnd = i;
-            if (imin==cache_index[i]) imin_fnd = i;
-        }
-        if (imax_fnd!=-1) {
-            *rmax = cache_rows+imax_fnd*nvecs;
-        } else {
-            // the next line is needed to prevent an overwrite if last==imin_fnd
-            if (last == imin_fnd) last = (last + 1)%csize;
-            keval.eval(cache_rows+last*nvecs,imax);
-            *rmax = cache_rows + last * nvecs;
-            cache_index[last] = imax;
-            last = (last + 1) % csize;
-        }
-        if (imin_fnd!=-1) {
-            *rmin = cache_rows+imin_fnd*nvecs;
-        } else {
-            // the next line is needed to prevent an overwrite if last==imax_fnd
-            if (last==imax_fnd) last=(last+1)%csize;
-            keval.eval(cache_rows+last*nvecs,imin);
-            *rmin = cache_rows + last * nvecs;
-            cache_index[last] = imin;
-            last = (last + 1) % csize;
-        }
+    constexpr const double * scaleFactors() const noexcept
+    {
+        return scale;
     }
 };
-
+}
 #endif

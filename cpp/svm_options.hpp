@@ -1,86 +1,113 @@
 #ifndef SVM_OPTIONS_H
 #define SVM_OPTIONS_H
 #include <cstdlib>
-#include <cstdio>
-#include <cmath>
-#include <cstring>
-#include "utils.hpp"
-#include "program_options.hpp"
+#include <string>
+#include <iostream>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
+#include "putils_program_options.hpp"
+
+namespace svmpack {
 struct svm_options {
-    double *vecs;
-    double *y;
-    double bias;
     double eps;
     double cost;
     double kc1;
     double kc2;
-    int csize;
     int kpow;
     int ktype;
-    int nvecs;
-    int nfeat;
+    int kscale;
+    int cache_size;
+    int cache_mem;
+    int cache_precompute;
     int max_its;
     int task;
-    int scale_kernel;
     int nths;
     std::string out;
     std::string model;
     std::string data;
 
-    svm_options(int argc,char **argv);
-
-    ~svm_options() {
-        delete [] vecs;
-        delete [] y;
+    svm_options(int argc,char **argv)
+    {
+        putils::ProgramOptions opts;
+        opts.addOptionsFromFile("svm.options");
+        opts.parseCommandLine(argc,argv);
+        if ( opts.hasValue("config")) {
+            std::string config_file = opts.getValue("config");
+            opts.parseFile(config_file.c_str());
+        }
+        out = opts.getValue("out");
+        model = opts.getValue("model");
+        data = opts.getValue("data");
+        std::string task_str = opts.getValue("task");
+        if ( task_str.compare("training")==0 ) {
+            task = 0;
+            eps = std::stod(opts.getValue("eps"));
+            cost = std::stod(opts.getValue("cost"));
+            kc1 = std::stod(opts.getValue("kc1"));
+            kc2 = std::stod(opts.getValue("kc2"));
+            kpow = std::stoi(opts.getValue("kpow"));
+            ktype = std::stoi(opts.getValue("ktype"));
+            kscale = std::stoi(opts.getValue("scale_kernel"));
+            cache_mem = std::stoi(opts.getValue("cache_mem"));
+            cache_size = std::stoi(opts.getValue("cache_size"));
+            cache_precompute = std::stoi(opts.getValue("cache_precompute"));
+            max_its = std::stoi(opts.getValue("max_its"));        
+        }
+        else
+        {
+            if ( task_str.compare("classify") == 0) {
+                task_str = 1;
+            }
+            else
+            {
+                if ( task_str.compare("validate") == 0) {
+                    task_str = 2;
+                }
+                else
+                {
+                    if ( task_str.compare("translate") == 0) {
+                        task_str = 3;
+                    }
+                    else
+                    {
+                        std::cerr << "unknown task! " << task_str << "\n";
+                        exit(-1);
+                    }
+                }
+            }
+        }
+        nths = std::stoi(opts.getValue("nths"));
+        write(std::cout);
     }
-
-    void read_libsvm_data_file() noexcept;
-    void read_tdo_data_file() noexcept;
-    void read_model_file() noexcept;
-    void read_data_file() noexcept;
-    void write_tdo_file(std::string&);
-    void write_libsvm_file(std::string&);
-    void translate();
-    void write_file(FILE *fp) const noexcept;
-
     std::ostream& write(std::ostream& os) const noexcept {
-        double vsize = double(sizeof(double)* nvecs * nfeat)/1048576.0;
-        double ksize = double(sizeof(double)* nvecs * csize)/1048576.0;
-
         os <<"svm options\n";
-        os <<"data file = "<<data<<"\n";
-        os <<"model file= "<<model<<"\n";
-        os <<"output    = "<<out<<"\n";
-        os <<"# vectors  = "<< nvecs << "\n";
-        os <<"# features = "<< nfeat << "\n";
+        os <<"data file  = "<<data<<"\n";
+        os <<"model file = "<<model<<"\n";
+        os <<"output     = "<<out<<"\n";
         os <<"# threads  = "<< nths << "\n";
-        os <<"scale kernel= "<<scale_kernel << "\n";
-        os <<"kernel type = "<< ktype << "\n";
-        os <<"kernel pow  = "<<kpow << "\n";
-        os <<"kernel c1   = "<<kc1 << "\n";
-        os <<"kernel c2   = "<<kc2 << "\n";
-        os <<"task        = "<<task << "\n";
-        if (task==0) {
-            os <<"cache size  = "<<csize << "\n";
+        os <<"task       = "<< task << "\n";
+        if ( task == 0) {
+            os <<"scale kernel= "<< kscale << "\n";
+            os <<"kernel type = "<< ktype << "\n";
+            os <<"kernel pow  = "<<kpow << "\n";
+            os <<"kernel c1   = "<<kc1 << "\n";
+            os <<"kernel c2   = "<<kc2 << "\n";
+            os <<"cache size  = "<<cache_size << "\n";
+            os <<"cache mem   = "<<cache_mem << "\n";
+            os <<"cache precomp = "<< cache_precompute << "\n";
             os <<"eps         = "<<eps << "\n";
             os <<"cost        = "<<cost << "\n";
             os <<"maxits      = "<<max_its << "\n";
         }
-        if (task==1) {
-            os <<"bias        = "<<bias << "\n";
-        }
-        os << "vecs size   = "<<vsize <<" MB\n";
-        os << "kmat size   = "<<ksize <<" MB\n";
         return os;
     }
+
+    friend std::ostream& operator << (std::ostream& os, const svm_options& opts)
+    {
+       return opts.write(os); 
+    }
 };
-
-inline std::ostream& operator << (std::ostream& os,const svm_options& opts) {
-    return opts.write(os);
 }
-
 #endif

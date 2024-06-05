@@ -1,53 +1,64 @@
 #ifndef SMO_SOLVER_HPP
 #define SMO_SOLVER_HPP
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cmath>
+#include <cstring>
+#include <cstdio>
+#include <fstream>
+#include <string>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include "stopwatch.hpp"
 #include "svm_kernel_matrix.hpp"
 #include "svm_options.hpp"
-#include "utils.hpp"
-#define USE_TIMERS
+#include "putils_cxx.hpp"
+#include "svmpack_math.hpp"
+#define SVMPACK_USE_TIMERS
 
-#ifdef _OPENMP
-#include <omp.h>
-#define SVM_USE_OPENMP
-#endif
+namespace svmpack {
 
 struct smo_solver {
     svm_kernel_matrix kmatrix;
-    double **kmax;
-    double **kmin;
     double *alfa;
     double *grad;
-    double *y;
+    const double *y;
     int *status;
     double fun,bias,gap,cost,eps;
     int nvecs;
-#ifdef USE_TIMERS
+#ifdef SVMPACK_USE_TIMERS
     stopwatch kmat_timer;
     stopwatch gap_timer;
     stopwatch step_timer;
     stopwatch grad_timer;
     stopwatch find_timer;
 #endif
-    smo_solver(svm_options& options):kmatrix(options),kmax(0x0),kmin(0x0),
-        alfa(0x0),grad(0x0),y(options.y),
-        status(0x0),fun(0.),
-        bias(0.),gap(0.),cost(options.cost),eps(options.eps),
-        nvecs(options.nvecs)
-#ifdef USE_TIMERS
-        ,kmat_timer(),gap_timer(),step_timer(),grad_timer(),find_timer()
+    smo_solver(const svm_options& opts, const svm_data& data):
+        kmatrix(opts,data),
+        alfa(0x0),
+        grad(0x0),
+        y(data.labels()),
+        status(0x0),
+        fun(0.),
+        bias(0.),
+        gap(0.),
+        cost(opts.cost),
+        eps(opts.eps),
+        nvecs(data.num_vectors())
+#ifdef SVMPACK_USE_TIMERS
+        ,kmat_timer(),
+        gap_timer(),
+        step_timer(),
+        grad_timer(),
+        find_timer()
 #endif
     {
         int k;
         alfa = new double[nvecs];
         grad = new double[nvecs];
         status = new int[nvecs];
-        kmax = new double*();
-        kmin = new double*();
         for (k=0; k<nvecs; ++k) {
             alfa[k]=0.;
         }
@@ -55,13 +66,10 @@ struct smo_solver {
             status[k] = -1;
         }
         for (k=0; k<nvecs; ++k) {
-            y[k] = ( y[k] >= 0. ) ? 1.:-1.;
-            grad[k] = y[k];
+            grad[k] = ( y[k] > -1.e-16 ) ? 1.:-1.;
         }
     }
     ~smo_solver() {
-        delete kmin;
-        delete kmax;
         delete [] status;
         delete [] grad;
         delete [] alfa;
@@ -69,8 +77,7 @@ struct smo_solver {
     int find_step() noexcept;
     int take_step(int,int) noexcept;
     void find_gap() noexcept;
-    void output_model_file(const svm_options& opts);
-
+    void output_model_file(const svm_options&,const svm_data&);
 };
 
 struct  IndexPair {
@@ -111,9 +118,6 @@ struct  IndexPair {
     }
 };
 
-void smo_solver_train(svm_options& opts);
-
+void smo_solver_train(const svm_options& opts);
+}
 #endif
-
-
-
