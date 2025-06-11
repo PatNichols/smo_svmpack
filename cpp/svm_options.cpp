@@ -235,28 +235,30 @@ svm_options::svm_options(int argc,char **argv)
             }
         }
     }
-    if (nths) {
-        std::string s=std::to_string(nths);
-        setenv("OMP_NUM_THREADS",s.c_str(),1);
-    } else{
-        const char *s_str = getenv("OMP_NUM_THREADS");
-        if (s_str) {
-            nths = std::stoi(std::string(s_str));
-        }else{
-            int id,n,nx[1];
+    int nx[1];
 #ifdef _OPENMP
-#pragma omp parallel private(n,id) shared(nx)
-            {
-                n = omp_get_num_threads();
-                id = omp_get_thread_num();
-                if (id==0) nx[0] = n;
-            }
-            nths = nx[0];
-#else
-            nths = 1;
-#endif            
-        }    
+    fprintf(stderr,"openmp is present\n");
+    if ( nths > 0) 
+    {
+        omp_set_num_threads(nths);
+    }else{
+        fprintf(stderr,"openmp present setting number of threads to 1 from 0\n");        
+        omp_set_num_threads(1);        
     }
+    int id,nt;
+#pragma omp parallel private(id,nt)
+    {
+        id = omp_get_thread_num();
+        nt = omp_get_num_threads();
+        if ( id == 0) nx[0] = nt;
+    }
+#else
+    fprintf(stderrr,"openmp is not present\n"); 
+    if ( nths > 0) fprintf(stderr,"# of threads will default to 1\n");
+    nx[0] = 1;   
+#endif
+    fprintf(stderr,"there are %d threads\n",nx[0]);
+    fprintf(stderr,"options sets threads to %d\n",nths);
     std::cerr << "svm options are:\n";
     write_file(stderr); 
 }

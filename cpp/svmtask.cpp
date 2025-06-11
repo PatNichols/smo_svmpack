@@ -1,16 +1,18 @@
-
+#include <omp.h>
 #include "utils.hpp"
 #include "program_options.hpp"
 #include "svm_options.hpp"
 #include "smo_solver.hpp"
 #include "svm_classify.hpp"
 
+
+
 int main(int argc,char **argv)
 {
     int task;
 
     svm_options options(argc,argv);
-
+ 
     task = options.task;
 
     switch (task) {

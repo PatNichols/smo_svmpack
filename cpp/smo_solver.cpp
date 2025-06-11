@@ -141,7 +141,9 @@ int smo_solver::take_step ( int imax, int imin ) noexcept {
         exit(EXIT_FAILURE);
     }
 #endif
-    kmatrix.get_row(imax,imin,kmax,kmin);
+    kmatrix.get_row(imax,kmax);
+    kmatrix.get_row(imin,kmin);
+//    kmatrix.get_row(imax,imin,kmax,kmin);
     const double *qmax= *kmax;
     const double *qmin= *kmin;
 #ifdef USE_TIMERS

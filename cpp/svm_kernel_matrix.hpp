@@ -28,7 +28,7 @@ struct svm_kernel_eval {
         if (opts.scale_kernel) {
             switch (ktype) {
             case 0:
-                #pragma omp parallel for private(i,j,sum,v1)
+#pragma omp parallel for private(i,j,sum,v1)
                 for (i=0; i<nvecs; ++i) {
                     v1 = vecs + i * nfeat;
                     sum =  0.;
@@ -41,7 +41,7 @@ struct svm_kernel_eval {
                 }
                 break;
             case 1:
-                #pragma omp parallel for private(i,j,sum,v1)
+#pragma omp parallel for private(i,j,sum,v1)
                 for (i=0; i<nvecs; ++i) {
                     v1 = vecs + i * nfeat;
                     sum =  0.;
@@ -56,13 +56,13 @@ struct svm_kernel_eval {
                 }
                 break;
             case 2:
-                #pragma omp parallel for private(i) schedule(static,512)
+#pragma omp parallel for private(i) schedule(static)
                 for (i=0; i<nvecs; ++i) {
                     scale[i]=1.0;
                 }
                 break;
             case 3:
-                #pragma omp parallel for private(i,j,sum,v1)
+#pragma omp parallel for private(i,j,sum,v1)
                 for (i=0; i<nvecs; ++i) {
                     v1 = vecs + i * nfeat;
                     sum =  0.;
@@ -121,7 +121,7 @@ struct svm_kernel_eval {
             }
             return;
         case 2:
-#pragma omp parallel for private(i,j,t,sum,v2,v1) schedule(static,512)
+#pragma omp parallel for private(i,j,t,sum,v2,v1) schedule(static)
             for (i=0; i<nvecs; ++i) {
                 v1 = vecs + irow*nfeat;
                 v2 = vecs + i*nfeat;
@@ -151,13 +151,15 @@ struct svm_kernel_eval {
 
 struct svm_kernel_matrix {
     svm_kernel_eval keval;
+    long nmiss;
+    long nhit;
     double *cache_rows;
     int *cache_index;
     int nsize;
     int csize;
     int nvecs;
     int last;
-
+    
     svm_kernel_matrix(const svm_options& opts):keval(opts),
         cache_rows(),cache_index(),csize(opts.csize),
         nvecs(opts.nvecs),last(0)
@@ -185,14 +187,15 @@ struct svm_kernel_matrix {
         delete [] cache_index;
         delete [] cache_rows;
     }
-    void get_row(int irow,double **R) {
+
+    inline void get_row(int irow,double **R) noexcept {
         if (csize==0) {
             *R = cache_rows+irow*nvecs;
             return;
         }
         int i;
         int ifnd = -1;
-#pragma omp parallel for private(i) reduction(max:ifnd)
+#pragma omp parallel for private(i) reduction(max:ifnd) schedule(static)
         for (i=0; i<csize; ++i) {
             if (irow==cache_index[i]) ifnd = i;
         }
@@ -206,7 +209,7 @@ struct svm_kernel_matrix {
         }
     }
 
-    inline void get_row(int imax,int imin,double **rmax,double **rmin) {
+    inline void get_row(int imax,int imin,double **rmax,double **rmin) noexcept {
         int i;
 
         if (csize == 0) {
@@ -216,7 +219,7 @@ struct svm_kernel_matrix {
         }
         int imax_fnd = -1;
         int imin_fnd = -1;
-#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,512)
+#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,128)
         for (i=0; i<csize; ++i) {
             if (imax==cache_index[i]) imax_fnd = i;
             if (imin==cache_index[i]) imin_fnd = i;
