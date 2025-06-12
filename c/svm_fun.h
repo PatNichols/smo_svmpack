@@ -4,19 +4,23 @@
 #include <stdio.h>
 #include <math.h>
 
-inline double svm_dot(const double *v1,const double *v2,int nfeat) {
+inline double svm_dot(const double *__restrict__ v1,const double *__restrict__ v2,const int nfeat) {
     int i;
     double s=0.0;
+#pragma GCC unroll 8
+#pragma GCC ivdep
     for (i=0; i<nfeat; ++i) {
         s+=v1[i]*v2[i];
     }
     return s;
 }
 
-inline double svm_diff_nrm2(const double *v1,const double *v2,int nfeat) {
+inline double svm_diff_nrm2(const double *__restrict__ v1,const double *__restrict__ v2,const int nfeat) {
     int i;
     double t;
     double s=0.0;
+#pragma GCC unroll 8
+#pragma GCC ivdep
     for (i=0; i<nfeat; ++i) {
         t = v1[i]-v2[i];
         s+=t*t;

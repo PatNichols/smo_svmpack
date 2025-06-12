@@ -130,13 +130,13 @@ void smo_solver_find_gap(smo_solver_t *smo) {
     stopwatch_start(smo->gap_timer);
 #endif
 
-    #pragma omp parallel for  private(k) reduction(+:asum) reduction(+:fsum)
+#pragma omp parallel for  private(k) reduction(+:asum) reduction(+:fsum)
     for ( k = 0; k < nvecs; ++k ) {
         asum += alfa[k];
         fsum += alfa[k] * grad[k] * y[k];
     }
     fsum = ( fsum + asum ) * 0.5;
-    #pragma omp parallel for  private(k) reduction(+:bsum) reduction(+:nfree)
+#pragma omp parallel for  private(k) reduction(+:bsum) reduction(+:nfree)
     for ( k = 0; k < nvecs; ++k ) {
         if ( status[k] == 0 ) {
             bsum += grad[k] ;
@@ -147,7 +147,7 @@ void smo_solver_find_gap(smo_solver_t *smo) {
 ///// if nfree = 0 then bias = 0 so no need for an else here
     if ( nfree )
         bsum /= nfree;
-    #pragma omp parallel for  private(k) reduction(+:csum)
+#pragma omp parallel for  private(k) reduction(+:csum)
     for ( k = 0; k < nvecs; ++k ) {
         csum += fmax( 0., ( y[k] * ( grad[k] + bsum ) ) );
     }
@@ -247,7 +247,7 @@ inline int smo_solver_take_step (smo_solver_t *smo, int imax, int imin ) {
             const int nvecs = smo->nvecs;
             const double da1 = ( y[imax] ) * ( a1 - ai );
             const double da2 = ( y[imin] ) * ( a2 - aj );
-            #pragma omp parallel for  private(k) firstprivate(da1,da2)
+#pragma omp parallel for  private(k) firstprivate(da1,da2)
             for ( k = 0; k < nvecs; ++k ) {
                 grad[k] -= ( da1 * qmax[k] + da2 * qmin[k] );
             }
@@ -400,11 +400,11 @@ int smo_solver_find_step(smo_solver_t *smo) {
     the_min->value = max0;
     the_min->index = -1;
 
-    #pragma omp declare reduction(MaxPair:index_pair_t*:omp_out=index_pair_max(omp_out,omp_in)) initializer(omp_priv=index_pair_init(-1.e300,-1))
+#pragma omp declare reduction(MaxPair:index_pair_t*:omp_out=index_pair_max(omp_out,omp_in)) initializer(omp_priv=index_pair_init(-1.e300,-1))
 
-    #pragma omp declare reduction(MinPair:index_pair_t*:omp_out=index_pair_min(omp_out,omp_in)) initializer(omp_priv=index_pair_init(1.e300,-1))
+#pragma omp declare reduction(MinPair:index_pair_t*:omp_out=index_pair_min(omp_out,omp_in)) initializer(omp_priv=index_pair_init(1.e300,-1))
 
-    #pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min)
+#pragma omp parallel for private(k,gx,ys) reduction(MaxPair:the_max) reduction(MinPair:the_min)
     for ( k = 0; k < smo->nvecs; ++k ) {
         ys = y[k] * status[k];
         if ( ys <= 0. ) {
@@ -500,8 +500,7 @@ void smo_solver_output_model_file(smo_solver_t *smo,svm_options_t* opts) {
     FILE *fout;
     int k;
 
-    #pragma omp parallel for  private(k) reduction(+:nsv) reduction(+:nbnd) \
-    reduction(+:nfsv) reduction(+:ntsv)
+#pragma omp parallel for  private(k) reduction(+:nsv) reduction(+:nbnd) reduction(+:nfsv) reduction(+:ntsv)
     for ( k = 0; k < nvecs; ++k ) {
         if ( smo->status[k] >= 0 ) {
             ++nsv;

@@ -2,7 +2,7 @@
 #define STOPWATCH_H
 #include <time.h>
 #include <sys/time.h>
-#include "utils.h"
+#include "svm_utils.h"
 
 typedef struct {
     struct timespec st;

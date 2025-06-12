@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "utils.h"
+#include "svm_utils.h"
 
 struct popt_t {
     char * key;

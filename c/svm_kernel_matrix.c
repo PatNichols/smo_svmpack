@@ -88,12 +88,14 @@ svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts) {
     if (opts->scale_kernel && opts->ktype!=2) {
         switch (eval->ktype) {
         case 0:
+#pragma omp parallel for private(i,v)
             for (i=0; i<nvecs; ++i) {
                 v = svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat);
                 eval->scale[i] = 1./sqrt(v);
             }
             break;
         case 1:
+#pragma omp parallel for private(i,v)
             for (i=0; i<nvecs; ++i) {
                 v = c1*svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2;
                 v = kern_powi(v,eval->kpow);
@@ -101,11 +103,13 @@ svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts) {
             }
             break;
         case 2:
+#pragma omp parallel for private(i)
             for (i=0; i<nvecs; ++i) {
                 eval->scale[i] = 1.;
             }
             break;
         case 3:
+#pragma omp parallel for private(i,v)
             for (i=0; i<nvecs; ++i) {
                 v = tanh( c1*svm_dot(vecs+i*nfeat,vecs+i*nfeat,nfeat)+c2 );
                 eval->scale[i] = 1./sqrt(v);
@@ -139,19 +143,19 @@ void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow) {
     double c1 = eval->c1;
     double c2 = eval->c2;
     int kpow = eval->kpow;
-    double d,t;
+    register double d,t;
 
     switch (eval->ktype) {
     case 0:
-        #pragma omp parallel for private(i,s1)
+#pragma omp parallel for private(i,s1) schedule(static)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*svm_dot(v1,vecs+i*nfeat,nfeat);
         return;
     case 1:
-        #pragma omp parallel for private(i,s1)
+#pragma omp parallel for private(i,s1) schedule(static)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*kern_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
         return;
     case 2:
-        #pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs) schedule(static)
+#pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs) schedule(static)
         for (i=0; i<nvecs; ++i) {
             v2 = vecs + i * nfeat;
             d = 0.0;
@@ -163,7 +167,7 @@ void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow) {
         }
         return;
     case 3:
-        #pragma omp parallel for private(i)
+#pragma omp parallel for private(i) schedule(static)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*tanh(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2);
         return;
     }
@@ -216,7 +220,7 @@ void svm_kernel_matrix_get_rows(svm_kernel_matrix_t *kmat,
     if (cache_size < nvecs) {
         imax_f = -1;
         imin_f = -1;
-        #pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f) schedule(static)
+#pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f) schedule(static)
         for (i=0; i< cache_size; ++i) {
             if (cache_index[i]==imax) imax_f = i;
             if (cache_index[i]==imin) imin_f = i;

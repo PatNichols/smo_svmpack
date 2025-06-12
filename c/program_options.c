@@ -1,5 +1,4 @@
 #include "program_options.h"
-#include "svm_utils.h"
 
 #define popt_matches(p,flag) strcmp((p)->key,(flag))==0
 

@@ -5,7 +5,7 @@
 #include <math.h>
 #include <limits.h>
 
-#include "utils.h"
+#include "svm_utils.h"
 #include "svm_fun.h"
 #include "svm_options.h"
 #include "svm_kernel_matrix.h"

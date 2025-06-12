@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include "utils.h"
+#include "svm_utils.h"
 #include "program_options.h"
 #ifdef _OPENMP
 #include <omp.h>
