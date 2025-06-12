@@ -50,23 +50,7 @@ svm_options_t * svm_options_init(int argc,char **argv) {
     char *task_str;
     svm_options_t * opts;
     program_options_t * popts = program_options_init();
-
-    program_options_insert(popts,"data","input data file","svm.in");
-    program_options_insert(popts,"model","model file name","svm.model");
-    program_options_insert(popts,"out","output file name","svm.out");
-    program_options_insert(popts,"task","task to perform (train,classify,translate)","train");
-    program_options_insert(popts,"kernel_type","kernel_function type:\n   0)dot product\n   1)polynomial dot product\
-        \n   2)radial basis function\n   3)logistic function","2");
-    program_options_insert(popts,"kernel_power","kernel power for type 1 kernel function","2");
-    program_options_insert(popts,"kernel_cof1","first parameter for kernel function","-1.0");
-    program_options_insert(popts,"kernel_cof2","second parameter for kernel function","0.0");
-    program_options_insert(popts,"cost","cost parameter for soft margin training","1.0");
-    program_options_insert(popts,"eps","convergence parameter for training","1.e-12");
-    program_options_insert(popts,"nthreads","number of threads","0");
-    program_options_insert(popts,"cache_size","number of rows to cache","-1");
-    program_options_insert(popts,"scale","scale kernel so diagonal elements are 1","true");
-    program_options_insert(popts,"config","config file for options",0x0);
-    program_options_insert(popts,"max_iterations","max # of training cycles","0");
+    program_options_insert_options(popts,"svm.options");
     program_options_parse_command_line(popts,argc,argv);
     if (program_options_has_value(popts,"config"))
         program_options_parse_config_file(popts,program_options_get_value(popts,"config"));

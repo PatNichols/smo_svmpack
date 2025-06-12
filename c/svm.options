@@ -1,0 +1,15 @@
+data "input data file" svm.in
+model "model file name" svm.model
+out "output file name" svm.out
+task "task to perform (train classify translate)" train
+kernel_type "kernel_function type:\n   0)dot product\n   1)polynomial dot product\n   2)radial basis function\n   3)logistic function" 2
+kernel_power "kernel power for type 1 kernel function" 2
+kernel_cof1 "first parameter for kernel function" -1.0
+kernel_cof2 "second parameter for kernel function" 0.0
+cost "cost parameter for soft margin training" 1.0
+eps "convergence parameter for training" 1.e-12
+nthreads "number of threads" 0
+cache_size "number of rows to cache" -1
+scale "scale kernel so diagonal elements are 1" true
+config "config file for options"
+max_iterations "max # of training cycles" 999

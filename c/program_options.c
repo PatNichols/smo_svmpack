@@ -244,19 +244,23 @@ void program_options_parse_environment(program_options_t* opts,const char *prefi
 void program_options_insert_options(program_options_t *popt,const char *filename) {
     size_t buffer_size = MAX_LINE_SIZE;
     char *buffer = (char*)Malloc(MAX_LINE_SIZE);
+    char *line_b = (char*)Malloc(MAX_LINE_SIZE);
     char **tokens = tokens_init();
     char *desc = 0x0;
     char *beg = 0x0;
     char *end = 0x0;
     char *last = 0x0;
-    int nrd,ntokens;
-    FILE *fp = fopen(filename,"r");
+    int nrd,ntokens,k;
+    FILE *fp = Fopen(filename,"r");
     const char *delims = " \n";
     char quote_char = '\"';
     while (!feof(fp)) {
+        memset(buffer,0x0,MAX_LINE_SIZE);
+        memset(line_b,0x0,MAX_LINE_SIZE);
         nrd = getline(&buffer,&buffer_size,fp);
         if (nrd == 0 ) continue;
         if (buffer[0] == '#') continue;
+//        fprintf(stderr,"read => %s\n",buffer);
         if (nrd > 0) {
             // look for desription string and then extract it from buffer
             beg = strchr(buffer,quote_char);
@@ -264,20 +268,24 @@ void program_options_insert_options(program_options_t *popt,const char *filename
                 end = strrchr(buffer,quote_char);
                 if (beg == end) {
                     fclose(fp);
+                    fprintf(stderr,"line = %s\n",buffer); 
                     fprintf(stderr,"unterminated quoted string");
                     exit(EXIT_FAILURE);
                 }
-                last = Strdup(end+1);
                 desc = strndup(beg+1,(end-beg-1));
-                strcat(beg," ");
-                strcat(beg+1,last);
-                free(last);
+                strncpy(line_b,buffer,(beg-buffer-1));
+                strncat(line_b," ",1);
+                strcat(line_b,end+1);                
+            }else{
+                strcpy(line_b,buffer);
             }
-            ntokens = explode_string(buffer,delims,tokens);
+//            fprintf(stderr,"line => %s\n",line_b);
+            ntokens = explode_string(line_b,delims,tokens);
             if (ntokens<=2) {
                 switch(ntokens) {
                 case 0:
-                    break;
+                    fprintf(stderr,"parse error no keyword\n");
+                    exit(EXIT_FAILURE);
                 case 1:
                     program_options_insert(popt,tokens[0],desc,0x0);
                     break;
@@ -287,6 +295,13 @@ void program_options_insert_options(program_options_t *popt,const char *filename
                     break;
                 }
             } else {
+                fprintf(stderr,"# of tokens = %d\n",ntokens); 
+                if (desc) fprintf(stderr,"desc = %s \n",desc);
+                fprintf(stderr,"line = %s\n",line_b); 
+                for (k=0;k<ntokens;++k)
+                {
+                    fprintf(stderr,"%d %s\n",k,tokens[k]);
+                }
                 parse_error("program_options_insert_options");
             }
         } else {
