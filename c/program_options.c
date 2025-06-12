@@ -347,7 +347,6 @@ void program_options_write(const program_options_t *opts,FILE *fp) {
     fprintf(fp,"Usage is %s (options)\n",opts->prog);
     fprintf(fp,"Options are :\n");
     for (i=0; i<nopt; ++i) {
-        fprintf(fp," name = %s\n",v[i].key);
         popt_write(&v[i],fp);
     }
 }
