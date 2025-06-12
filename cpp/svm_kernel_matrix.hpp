@@ -219,7 +219,7 @@ struct svm_kernel_matrix {
         }
         int imax_fnd = -1;
         int imin_fnd = -1;
-#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static,128)
+#pragma omp parallel for private(i) reduction(max:imax_fnd) reduction(max:imin_fnd) schedule(static)
         for (i=0; i<csize; ++i) {
             if (imax==cache_index[i]) imax_fnd = i;
             if (imin==cache_index[i]) imin_fnd = i;
