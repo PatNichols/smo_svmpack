@@ -49,6 +49,10 @@ inline void svm_options::read_libsvm_data_file() noexcept
     /// training task
     std::ifstream in;
     in.open(data.c_str());
+    if (!in) {
+        fprintf(stderr,"cannot open data file %s\n",data.c_str());
+        exit(EXIT_FAILURE); 
+    }
     while (in) {
         getline(in,sline);
         if (sline.size()==0) break;
@@ -113,6 +117,7 @@ inline void svm_options::read_tdo_data_file() noexcept
     in.open(data.c_str());
     if (!in) {
         std::cerr << "could not open " << data << "\n";
+        exit(EXIT_FAILURE);
     }
     in.read((char*)&nvecs,sizeof(int));
     in.read((char*)&nfeat,sizeof(int));
@@ -130,6 +135,7 @@ inline void svm_options::read_model_file() noexcept
     in.open(model.c_str());
     if (!in) {
         std::cerr << "could not open " << model << "\n";
+        exit(EXIT_FAILURE);
     }
     in.read((char*)&nvecs,sizeof(int));
     in.read((char*)&nfeat,sizeof(int));

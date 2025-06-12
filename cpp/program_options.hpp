@@ -340,9 +340,8 @@ struct program_options {
     void parse_config_file(const std::string& ConfigFile)
     {
         std::ifstream in;
-        try {
-            in.open(ConfigFile.c_str(),std::ios::in);
-        } catch (std::exception& e) {
+        in.open(ConfigFile.c_str(),std::ios::in);
+        if (!in) {
             std::cerr << "ParseConfigFile:: Cannot read the file " << ConfigFile << " to insert options\n";
             exit(EXIT_FAILURE);
         }
