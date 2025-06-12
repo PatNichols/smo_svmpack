@@ -6,8 +6,7 @@
 #include "smo_solver.h"
 #include "svm_model.h"
 
-int main(int argc,char **argv)
-{
+int main(int argc,char **argv) {
     svm_options_t * options = svm_options_init(argc,argv);
 
     switch (options->task) {

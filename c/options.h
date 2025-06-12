@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "program_options.h"
 
-typedef struct svm_options_t {
+struct svm_options_t {
     double *vecs;
     double *y;
     double bias;
@@ -25,6 +25,8 @@ typedef struct svm_options_t {
     char * model;
     char * data;
 };
+
+typedef struct svm_options_t svm_options_t;
 
 svm_options_t * svm_options_init(int argc,char **argv)
 void svm_options_free(svm_options_t* opts);

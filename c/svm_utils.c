@@ -1,7 +1,6 @@
 #include "svm_utils.h"
 
-void * Malloc(size_t n)
-{
+void * Malloc(size_t n) {
 #ifdef HAVE_POSIX_MEMALIGN
     size_t aln = 64; /* 256 byte width alignment */
     void *ptr;
@@ -14,15 +13,13 @@ void * Malloc(size_t n)
     exit(EXIT_FAILURE);
 }
 
-void * Calloc(size_t n)
-{
+void * Calloc(size_t n) {
     void * ptr = Malloc(n);
     memset(ptr,0x0,n);
     return ptr;
 }
 
-void * Realloc(void *ptr,size_t old_size,size_t new_size)
-{
+void * Realloc(void *ptr,size_t old_size,size_t new_size) {
     void * tmp = Malloc(new_size);
     memcpy(tmp,ptr,old_size);
     free(ptr);
@@ -30,6 +27,19 @@ void * Realloc(void *ptr,size_t old_size,size_t new_size)
     return ptr;
 }
 
+char * Strdup(const char *str)
+{
+    char * r = strdup(str);
+    if ( r == 0x0) {
+        if ( str != 0x0) {
+            fprintf(stderr,"strdup failed for string \"%s\"\n",str);
+        }else{
+            fpritnf(stderr,"strdup failed empty string\n");
+        }
+        exit(EXIT_FAILURE);
+    }
+    return r;
+}
 
 FILE *Fopen(const char *name,const char *mode) {
     FILE *fp = fopen(name,mode);
@@ -38,13 +48,12 @@ FILE *Fopen(const char *name,const char *mode) {
     exit(EXIT_FAILURE);
 }
 
-void Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
-{
+void Fread(void *ptr,size_t osize,size_t cnt,FILE *fp) {
     ssize_t rd = fread(ptr,osize,cnt,fp);
     if (rd!=cnt) {
         if (feof(fp)) {
             fprintf(stderr,"end of file\n");
-        }else{
+        } else {
             fprintf(stderr,"error %s\n",strerror(errno));
         }
         fprintf(stderr,"read only %zd of %zu elements\n",rd,cnt);
@@ -52,8 +61,7 @@ void Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
     }
 }
 
-void Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
-{
+void Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp) {
     ssize_t wr = fwrite(ptr,osize,cnt,fp);
     if (wr!=cnt) {
         fprintf(stderr,"file error %d\n",ferror(fp));
@@ -61,26 +69,24 @@ void Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
     }
 }
 
-int64_t Getline(char **line_ptr,size_t *line_size,FILE *fp)
-{
-   ssize_t n = getline(line_ptr,line_size,fp); 
-   if ( n >= 0) return n;
-   if (feof(fp)) return -1;
-   fprintf(stderr,"error getline failed %s\n",strerror(errno));
-   exit(EXIT_FAILURE);
+int64_t Getline(char **line_ptr,size_t *line_size,FILE *fp) {
+    ssize_t n = getline(line_ptr,line_size,fp);
+    if ( n >= 0) return n;
+    if (feof(fp)) return -1;
+    fprintf(stderr,"error getline failed %s\n",strerror(errno));
+    exit(EXIT_FAILURE);
 }
 
 
 char ** tokens_init() {
     int i;
     char ** tokens = (char**)Malloc(SVM_MAX_TOKENS*sizeof(char*));
-    for (i=0; i<SVM_MAX_TOKENS; ++i) 
+    for (i=0; i<SVM_MAX_TOKENS; ++i)
         tokens[i] = (char*)Malloc(SVM_MAX_LINE_SIZE);
     return tokens;
 }
 
-void tokens_free(char **tokens)
-{
+void tokens_free(char **tokens) {
     int i;
     for (i=SVM_MAX_TOKENS; i>0;) {
         --i;
@@ -89,8 +95,7 @@ void tokens_free(char **tokens)
     free(tokens);
 }
 
-int explode_string(char *str,const char *delims,char **tokens)
-{
+int explode_string(char *str,const char *delims,char **tokens) {
     char * last;
     char * ptr;
     int cnt = 0;
@@ -106,8 +111,7 @@ int explode_string(char *str,const char *delims,char **tokens)
     return cnt;
 }
 
-int parse_bool(char *str)
-{
+int parse_bool(char *str) {
     size_t slen = strlen(str);
 
     if (slen) {
@@ -118,8 +122,7 @@ int parse_bool(char *str)
     return 1;
 }
 
-void parse_error(const char *mess)
-{
+void parse_error(const char *mess) {
     fprintf(stderr,"parse error : %s\n",mess);
     exit(EXIT_FAILURE);
 }
@@ -130,9 +133,8 @@ void quit_error(const char *mess) {
 }
 
 
-void write_tdo_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs)
-{
-    FILE *fp;    
+void write_tdo_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs) {
+    FILE *fp;
     fp = Fopen(file_name,"w");
     Fwrite((void*)&nvecs,sizeof(int),1,fp);
     Fwrite((void*)&nfeat,sizeof(int),1,fp);
@@ -142,18 +144,17 @@ void write_tdo_file(const char *file_name,int nvecs,int nfeat,double *y,double *
 }
 
 
-void write_libsvm_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs)
-{	
+void write_libsvm_file(const char *file_name,int nvecs,int nfeat,double *y,double *vecs) {
     int i,j;
     int index;
     int iy;
     FILE *fp = Fopen(file_name,"w");
-    for (i=0;i<nvecs;++i) {
+    for (i=0; i<nvecs; ++i) {
         iy = (int) y[i];
         if (iy>=0) iy=1;
         else iy=-1;
         fprintf(fp," %d\n",iy);
-        for (j=0;j<nfeat;++j) {
+        for (j=0; j<nfeat; ++j) {
             index = j + 1;
             fprintf(fp," %d:%lg",index,vecs[j+i*nfeat]);
         }
@@ -164,8 +165,7 @@ void write_libsvm_file(const char *file_name,int nvecs,int nfeat,double *y,doubl
     return;
 }
 
-void read_tdo_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs)
-{
+void read_tdo_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs) {
     int nv,nf;
     FILE *fp = Fopen(file_name,"r");
     Fread((void*)&nv,sizeof(int),1,fp);
@@ -179,8 +179,7 @@ void read_tdo_file(const char *file_name,int *nvecs,int *nfeat,double **y,double
     fclose(fp);
 }
 
-void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs)
-{
+void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,double **vecs) {
     ssize_t nrd;
     size_t line_size = 512;
     int ntokens;
@@ -210,7 +209,7 @@ void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,dou
             exit(EXIT_FAILURE);
         }
         if (ntokens > 2) {
-            index = strtoull(tokens[ntokens-2],&end_ptr,10);        
+            index = strtoull(tokens[ntokens-2],&end_ptr,10);
             nf = (nf >= index) ? nf:index;
         }
     }
@@ -223,19 +222,19 @@ void read_libsvm_file(const char *file_name,int *nvecs,int *nfeat,double **y,dou
     vec_p = *vecs;
     y_p = *y;
     memset(vec_p,0x0,sizeof(double)*nv*nf);
-    for (iv=0;iv<nv;++iv) {
+    for (iv=0; iv<nv; ++iv) {
         nrd = Getline(&sline,&line_size,fp);
         if (nrd==-1) break;
         ntokens = explode_string(sline,delims,tokens);
-        y_p[iv] = strtod(tokens[0],&end_ptr); 
-        for (itoken = 1;itoken < ntokens;itoken+=2) {
+        y_p[iv] = strtod(tokens[0],&end_ptr);
+        for (itoken = 1; itoken < ntokens; itoken+=2) {
             index = strtoull(tokens[itoken],&end_ptr,10);
             value = strtod(tokens[itoken+1],&end_ptr);
-            vec_p[iv*nf+index-1] = value; 
+            vec_p[iv*nf+index-1] = value;
         }
     }
     clearerr(fp);
-    fclose(fp);    
+    fclose(fp);
     tokens_free(tokens);
     free(sline);
 }

@@ -18,7 +18,7 @@
 void * Malloc(size_t n);
 void * Calloc(size_t n);
 void * Realloc(void *ptr,size_t old_size,size_t new_size);
-
+char * Strdup(const char *str);
 FILE *Fopen(const char *name,const char *mode);
 void Fread(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);
 void Fwrite(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);

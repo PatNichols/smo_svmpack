@@ -5,12 +5,12 @@ svm_data * svm_data_init(const char *data_file) {
     int i;
     FILE *fp;
     svm_data * data = MALLOC_PTR(svm_data);
-    
+
     if (strstr(data_file,".tdo")==0x0) {
         read_libsvm_file(data_file,&nvecs,&nfeat,&(data->y),&(data->vecs));
         data->nvecs = nvecs;
         data->nfeat = nfeat;
-    }else{
+    } else {
         fp = Fopen(data_file,"r");
         Fread((void*)&nvecs,sizeof(int),1,fp);
         Fread((void*)&nfeat,sizeof(int),1,fp);
@@ -24,7 +24,7 @@ svm_data * svm_data_init(const char *data_file) {
     }
     nt = 0;
     nf = 0;
-    for (i=0;i<nvecs;++i) {
+    for (i=0; i<nvecs; ++i) {
         if (data->y[i] > 0.0) ++nt;
         else ++nf;
     }

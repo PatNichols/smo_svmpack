@@ -3,8 +3,7 @@
 #include "svm_kernel_matrix.h"
 #include "svm_fun.h"
 
-double kern_powi(double x,int m)
-{
+double kern_powi(double x,int m) {
     double w,y,z;
     if (m<0) {
         m = -m;
@@ -62,8 +61,7 @@ double kern_powi(double x,int m)
     return 1.e300;
 }
 
-svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts)
-{
+svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts) {
     int i;
     double *scal;
     const double *vecs;
@@ -124,14 +122,12 @@ svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts)
     return eval;
 }
 
-void svm_kernel_eval_free(svm_kernel_eval_t * eval)
-{
+void svm_kernel_eval_free(svm_kernel_eval_t * eval) {
     free(eval->scale);
     free(eval);
 }
 
-void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
-{
+void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow) {
     int i,j;
     int nvecs = eval->nvecs;
     int nfeat = eval->nfeat;
@@ -147,15 +143,15 @@ void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
 
     switch (eval->ktype) {
     case 0:
-#pragma omp parallel for private(i,s1)
+        #pragma omp parallel for private(i,s1)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*svm_dot(v1,vecs+i*nfeat,nfeat);
         return;
     case 1:
-#pragma omp parallel for private(i,s1)
+        #pragma omp parallel for private(i,s1)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*kern_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
         return;
     case 2:
-#pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs) schedule(static)
+        #pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs) schedule(static)
         for (i=0; i<nvecs; ++i) {
             v2 = vecs + i * nfeat;
             d = 0.0;
@@ -167,14 +163,13 @@ void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
         }
         return;
     case 3:
-#pragma omp parallel for private(i)
+        #pragma omp parallel for private(i)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*tanh(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2);
         return;
     }
 }
 
-svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
-{
+svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts) {
     int cache_size;
     int nvecs,i;
 
@@ -211,8 +206,7 @@ svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
 }
 
 void svm_kernel_matrix_get_rows(svm_kernel_matrix_t *kmat,
-int imax,int imin,double **rmax,double **rmin)
-{
+                                int imax,int imin,double **rmax,double **rmin) {
     int i,imax_f,imin_f;
     int *cache_index = kmat->cache_index;
     double *krows = kmat->cache_row;
@@ -222,15 +216,15 @@ int imax,int imin,double **rmax,double **rmin)
     if (cache_size < nvecs) {
         imax_f = -1;
         imin_f = -1;
-#pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f) schedule(static)
+        #pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f) schedule(static)
         for (i=0; i< cache_size; ++i) {
             if (cache_index[i]==imax) imax_f = i;
             if (cache_index[i]==imin) imin_f = i;
         }
         if (imax_f>=0) {
             *rmax = krows + imax_f * nvecs;
-        }else{
-        // if we get here we didn't find row in cache
+        } else {
+            // if we get here we didn't find row in cache
             if (imin_f == last) last = (last+1)%cache_size;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imax);
             *rmax = krows+last*nvecs;
@@ -239,8 +233,8 @@ int imax,int imin,double **rmax,double **rmin)
         }
         if (imin_f>=0) {
             *rmin = krows + imin_f * nvecs;
-        }else{
-        // if we get here we didn't find row in cache
+        } else {
+            // if we get here we didn't find row in cache
             if (imax_f == last) last = (last+1)%cache_size;
             svm_kernel_eval(kmat->eval,krows+last*nvecs,imin);
             *rmin = krows+last*nvecs;
@@ -255,8 +249,7 @@ int imax,int imin,double **rmax,double **rmin)
     }
 }
 
-void svm_kernel_matrix_free(svm_kernel_matrix_t *kmat)
-{
+void svm_kernel_matrix_free(svm_kernel_matrix_t *kmat) {
     free(kmat->eval);
     free(kmat->cache_row);
     free(kmat->cache_index);

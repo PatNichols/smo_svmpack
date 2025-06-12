@@ -10,7 +10,7 @@
 #include <omp.h>
 #endif
 
-struct svm_options_t{
+struct svm_options_t {
     double *vecs;
     double *y;
     double bias;

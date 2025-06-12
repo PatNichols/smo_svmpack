@@ -11,13 +11,12 @@ void svm_options_translate(svm_options_t* options) {
     if (strstr(options->data,".tdo")!=0x0) {
         /* data file is a tdo file, write out libsvm file */
         write_libsvm_file(options->out,options->nvecs,options->nfeat,options->y,options->vecs);
-    }else{
+    } else {
         write_tdo_file(options->out,options->nvecs,options->nfeat,options->y,options->vecs);
     }
 }
 
-int find_substring(const char *str,const char *sub)
-{
+int find_substring(const char *str,const char *sub) {
     char * s = strstr(str,sub);
     if (s) return (s-str);
     return -1;
@@ -32,26 +31,25 @@ void svm_options_read_data_file(svm_options_t* opts) {
     fprintf(stderr,"reading data file %s\n",opts->data);
     if (px) {
         read_tdo_file(opts->data,&(opts->nvecs),&(opts->nfeat),&(opts->y),&(opts->vecs));
-    }else{
+    } else {
         read_libsvm_file(opts->data,&(opts->nvecs),&(opts->nfeat),&(opts->y),&(opts->vecs));
     }
     fprintf(stderr,"read data file %s\n",opts->data);
     nt = 0;
     nf = 0;
-    for (int i=0;i<opts->nvecs ;++i) {
+    for (int i=0; i<opts->nvecs ; ++i) {
         if (opts->y[i]>0.0) ++nt;
         else ++nf;
     }
     fprintf(stderr,"# true = %ld #false = %ld\n",nt,nf);
 }
 
-svm_options_t * svm_options_init(int argc,char **argv)
-{
+svm_options_t * svm_options_init(int argc,char **argv) {
     int task;
     char *end;
     char *task_str;
     svm_options_t * opts;
-    program_options_t * popts = program_options_init(argc,argv);
+    program_options_t * popts = program_options_init();
 
     program_options_insert(popts,"data","input data file","svm.in");
     program_options_insert(popts,"model","model file name","svm.model");
@@ -109,13 +107,13 @@ svm_options_t * svm_options_init(int argc,char **argv)
 #ifdef _OPENMP
     if (opts->nths>0) {
         omp_set_num_threads(opts->nths);
-    }else{
+    } else {
         omp_set_num_threads(1);
         opts->nths = 1;
     }
     {
         int nt,id,nx[0];
-#pragma omp parallel private(id,nt)
+        #pragma omp parallel private(id,nt)
         {
             id = omp_get_thread_num();
             if ( id == 0) nx[0] = omp_get_num_threads();
@@ -125,7 +123,7 @@ svm_options_t * svm_options_init(int argc,char **argv)
 #else
     fprintf(stderr,"no openmp present\n");
     opts->nths = 1;
-#endif    
+#endif
     fprintf(stderr,"svm options are:\n");
     svm_options_write(opts,stderr);
     program_options_free(popts);
@@ -139,8 +137,7 @@ void svm_options_free(svm_options_t* opts) {
     opts = 0x0;
 }
 
-void svm_options_write(svm_options_t* opts,FILE *fp)
-{
+void svm_options_write(svm_options_t* opts,FILE *fp) {
     size_t vecs_size = opts->nvecs;
     size_t kmat_size = opts->csize;
     size_t nfeat_ = opts->nfeat;
@@ -167,7 +164,7 @@ void svm_options_write(svm_options_t* opts,FILE *fp)
         fprintf(fp,"maxits      = %d\n",opts->max_its);
         fprintf(stderr,"vecs size   = %le MB\n",vsize);
         fprintf(stderr,"kmat size   = %le MB\n",ksize);
-    } 
+    }
     return;
 }
 
