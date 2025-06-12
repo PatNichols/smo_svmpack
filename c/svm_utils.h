@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <math.h>
 #include <errno.h>
-
+#include <stdint.h>
 #define MAX_LINE_SIZE 512
 #define MAX_TOKENS 128
 #define TAU 1.e-14
@@ -20,9 +20,9 @@ void * Calloc(size_t n);
 void * Realloc(void *ptr,size_t old_size,size_t new_size);
 
 FILE *Fopen(const char *name,const char *mode);
-size_t Fread(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);
-size_t Fwrite(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);
-ssize_t Getline(char**,size_t*,FILE *fp);
+void Fread(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);
+void Fwrite(void *ptr,size_t size_of_object,size_t cnt,FILE *fp);
+int64_t Getline(char**,size_t*,FILE *fp);
 
 char ** tokens_init();
 void tokens_free(char **tokens);

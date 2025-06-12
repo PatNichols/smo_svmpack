@@ -23,7 +23,7 @@ popt_t * popt_init(char *keyword,char *description,char *value)
     return p;
 }
 
-inline popt_t * popt_set(popt_t *p,char *keyword,char *description,char *value)
+ popt_t * popt_set(popt_t *p,char *keyword,char *description,char *value)
 {
     if (!keyword) {
         fprintf(stderr,"Cannot initialize a option with no keyword\n");
@@ -47,21 +47,21 @@ inline popt_t * popt_set(popt_t *p,char *keyword,char *description,char *value)
 
 
 
-inline void popt_set_value(popt_t *p,char *new_value) {
+ void popt_set_value(popt_t *p,char *new_value) {
     if (p->st == 1) return;
     if (p->val) free(p->val);
     p->val = strdup(new_value);
     p->st = 1;
 }
 
-inline void popt_free(popt_t *p) {
+ void popt_free(popt_t *p) {
     if (p->val) free(p->val);
     if (p->des) free(p->des);
     free(p->key);
     free(p);
 }
 
-inline void popt_write(popt_t *p,FILE *fp)
+ void popt_write(popt_t *p,FILE *fp)
 {
     fprintf(fp,"-%s :",p->key);
     if (p->des) {
@@ -140,14 +140,14 @@ void popt_list_insert(popt_list_t * list,char *k,char *d,char *v)
     list->sz += 1;
 }
 
-inline void program_options_print_help(program_options_t *opts)
+ void program_options_print_help(program_options_t *opts)
 {
     program_options_write(opts,stderr);
     fprintf(stderr,"-help : print this screen\n");
     exit(EXIT_FAILURE);
 }
 
-inline void program_options_parse_command_line(program_options_t *opts,int argc,char **argv)
+ void program_options_parse_command_line(program_options_t *opts,int argc,char **argv)
 {
     int i,j;
     char *key;
@@ -194,29 +194,38 @@ inline void program_options_parse_command_line(program_options_t *opts,int argc,
     }
 }
 
-inline void program_options_parse_config_file(program_options_t *opts,char *filename)
+ void program_options_parse_config_file(program_options_t *opts,char *filename)
 {
-    const char *delims = " =:\n";
+    const char *delims = " \n";
     size_t buffer_size = MAX_LINE_SIZE;
     char *buffer = (char*)Malloc(MAX_LINE_SIZE);
     char ** tokens;
     int nrd,ntokens;
-
+    char * ptr;
     tokens = tokens_init();
     FILE *fp = Fopen(filename,"r");
     while (!feof(fp)) {
         nrd = getline(&buffer,&buffer_size,fp);
         if (nrd==0 || strlen(buffer)==0) break;
         if (buffer[0]=='#') continue;
+        ptr = strchr(buffer,'=');
+        if (ptr) *ptr = ' ';
         ntokens = explode_string(buffer,delims,tokens);
-        if (ntokens==0) continue;
-        if (ntokens!=2) {
-            fprintf(stderr,"Error reading config file too many words on line\n");
-            fprintf(stderr,"line = %s\n",buffer);
-            fprintf(stderr,"# tokens = %d\n",ntokens);
-            exit(EXIT_FAILURE);
+        switch (ntokens)
+        {
+            case 0:
+                fprintf(stderr,"format error : %s\n",buffer);
+                exit(EXIT_FAILURE);
+            case 1:
+                program_options_set_value(opts,tokens[0],"true");
+                break;
+            case 2:
+                program_options_set_value(opts,tokens[0],tokens[1]);
+                break;
+            default:                
+                fprintf(stderr,"format error : %s\n",buffer);
+                exit(EXIT_FAILURE);
         }
-        program_options_set_value(opts,tokens[0],tokens[1]);
     }
     fclose(fp);
     tokens_free(tokens);
@@ -225,7 +234,7 @@ inline void program_options_parse_config_file(program_options_t *opts,char *file
     return;
 }
 
-inline void program_options_parse_environment(program_options_t* opts,char *prefix)
+ void program_options_parse_environment(program_options_t* opts,char *prefix)
 {
     char *flag;
     char *env_str;
@@ -262,7 +271,7 @@ inline void program_options_parse_environment(program_options_t* opts,char *pref
     }
 }
 
-inline void program_options_insert_options(program_options_t *popt,char *filename)
+ void program_options_insert_options(program_options_t *popt,char *filename)
 {
     size_t buffer_size = MAX_LINE_SIZE;
     char *buffer = (char*)Malloc(MAX_LINE_SIZE);
@@ -298,7 +307,7 @@ inline void program_options_insert_options(program_options_t *popt,char *filenam
     fclose(fp);
 }
 
-inline program_options_t * program_options_init(int argc,char **argv)
+ program_options_t * program_options_init(int argc,char **argv)
 {
     program_options_t * opts = MALLOC_PTR(program_options_t);
     opts->list = popt_list_allocate();
@@ -306,20 +315,20 @@ inline program_options_t * program_options_init(int argc,char **argv)
     return opts;
 }
 
-inline void program_options_insert(program_options_t *opts,char *flag,char *des,char *val)
+ void program_options_insert(program_options_t *opts,char *flag,char *des,char *val)
 {
     popt_list_insert(opts->list,flag,des,val);
     return;
 }
 
-inline void program_options_free(program_options_t *opts) {
+ void program_options_free(program_options_t *opts) {
     popt_list_deallocate(opts->list);
     free(opts->prog);
     free(opts);
     return;
 }
 
-inline void program_options_write(program_options_t *opts,FILE *fp)
+ void program_options_write(program_options_t *opts,FILE *fp)
 {
     size_t i;
     size_t nopt = opts->list->sz;
@@ -332,7 +341,7 @@ inline void program_options_write(program_options_t *opts,FILE *fp)
     }
 }
 
-inline popt_t * program_options_find(program_options_t *opts,char *flag)
+ popt_t * program_options_find(program_options_t *opts,char *flag)
 {
     size_t i;
     size_t nopt = opts->list->sz;
@@ -345,20 +354,20 @@ inline popt_t * program_options_find(program_options_t *opts,char *flag)
 }
 
 
-inline popt_t * program_options_set_value(program_options_t *opts,char *flag,char *value)
+ popt_t * program_options_set_value(program_options_t *opts,char *flag,char *value)
 {
     popt_t * p = program_options_find(opts,flag);
     popt_set_value(p,value);
     return p;
 }
 
-inline char * program_options_get_value(program_options_t *opts,char *flag)
+ char * program_options_get_value(program_options_t *opts,char *flag)
 {
     popt_t * p = program_options_find(opts,flag);
     return p->val;
 }
 
-inline int program_options_has_value(program_options_t *opts,char *flag)
+ int program_options_has_value(program_options_t *opts,char *flag)
 {
     size_t i;
     size_t nopt = opts->list->sz;
@@ -371,7 +380,7 @@ inline int program_options_has_value(program_options_t *opts,char *flag)
     return 0;
 }
 
-inline int program_options_was_set(program_options_t *opts,char *flag)
+ int program_options_was_set(program_options_t *opts,char *flag)
 {
     size_t i;
     size_t nopt = opts->list->sz;

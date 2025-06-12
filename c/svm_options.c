@@ -1,7 +1,7 @@
 #include "svm_options.h"
 
 
-inline void svm_options_translate(svm_options_t* options) {
+void svm_options_translate(svm_options_t* options) {
     char *pstr = strstr(options->data,".tdo");
 
     fprintf(stderr,"translating\n");
@@ -23,7 +23,7 @@ int find_substring(const char *str,const char *sub)
     return -1;
 }
 
-inline void svm_options_read_data_file(svm_options_t* opts) {
+void svm_options_read_data_file(svm_options_t* opts) {
     int nt;
     int nf;
     int i;
@@ -45,7 +45,7 @@ inline void svm_options_read_data_file(svm_options_t* opts) {
     fprintf(stderr,"# true = %ld #false = %ld\n",nt,nf);
 }
 
-inline svm_options_t * svm_options_init(int argc,char **argv)
+svm_options_t * svm_options_init(int argc,char **argv)
 {
     int task;
     char *end;
@@ -107,19 +107,25 @@ inline svm_options_t * svm_options_init(int argc,char **argv)
         }
     }
 #ifdef _OPENMP
-    if (opts->nths) {
-#pragma omp parallel 
-        {
-            if (omp_get_thread_num()==0) omp_set_num_threads(opts->nths);
-        }
+    if (opts->nths>0) {
+        omp_set_num_threads(opts->nths);
     }else{
-#pragma omp parallel  
-        {
-            if (omp_get_thread_num()==0) opts->nths = omp_get_num_threads();
-        }    
+        omp_set_num_threads(1);
+        opts->nths = 1;
     }
-#endif
-
+    {
+        int nt,id,nx[0];
+#pragma omp parallel private(id,nt)
+        {
+            id = omp_get_thread_num();
+            if ( id == 0) nx[0] = omp_get_num_threads();
+        }
+        fprintf(stderr,"there are %d threads\n",nx[0]);
+    }
+#else
+    fprintf(stderr,"no openmp present\n");
+    opts->nths = 1;
+#endif    
     fprintf(stderr,"svm options are:\n");
     svm_options_write(opts,stderr);
     program_options_free(popts);

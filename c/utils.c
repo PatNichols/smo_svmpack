@@ -33,14 +33,14 @@ void * Realloc(void *ptr,size_t old_size,size_t new_size)
 }
 
 
-inline FILE *Fopen(const char *name,const char *mode) {
+FILE *Fopen(const char *name,const char *mode) {
     FILE *fp = fopen(name,mode);
     if (fp) return fp;
     fprintf(stderr,"could not open the file %s in mode %s\n",name,mode);
     exit(EXIT_FAILURE);
 }
 
-inline size_t Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
+size_t Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
 {
     ssize_t rd = fread(ptr,osize,cnt,fp);
     if (rd!=cnt) {
@@ -55,7 +55,7 @@ inline size_t Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
     return rd;
 }
 
-inline size_t Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
+size_t Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
 {
     ssize_t wr = fwrite(ptr,osize,cnt,fp);
     if (wr!=cnt) {
@@ -84,42 +84,45 @@ ssize_t Getline(char **line_ptr,size_t *line_size,FILE *fp)
 }
 
 
-inline char ** tokens_init() {
+char ** tokens_init() {
     int i;
     char ** tokens = (char**)Malloc(MAX_TOKENS*sizeof(char*));
     for (i=0; i<MAX_TOKENS; ++i) tokens[i] = (char*)Malloc(MAX_LINE_SIZE);
     return tokens;
 }
 
-inline void tokens_free(char **tokens)
+void tokens_free(char **tokens)
 {
     int i;
     for (i=MAX_TOKENS; i>0;) {
         --i;
-        free(tokens[i]);
+        if ( tokens[i] ) free(tokens[i]);
     }
     free(tokens);
 }
 
-inline char * string_alloc() {
+char * string_alloc() {
     return (char*)Malloc(MAX_LINE_SIZE);
 }
 
 
-inline int explode_string(char *str,const char *delims,char **tokens)
+int explode_string(char *str,const char *delims,char **tokens)
 {
     char * last;
     char * ptr;
     int cnt = 0;
 
-    for ( ptr = strtok_r(str,delims,&last); ptr; ptr=strtok_r(NULL,delims,&last)) {
-        strcpy(tokens[cnt],ptr);
-        ++cnt;
-    }
+    ptr = strtok_r(str,delims,&last);
+    while ( ptr )
+    {
+       strcpy(tokens[cnt],ptr);
+       ++cnt;
+       ptr = strtok_r(0x0,delims,&last);  
+    } 
     return cnt;
 }
 
-inline int parse_bool(char *str)
+int parse_bool(char *str)
 {
     size_t slen = strlen(str);
 
@@ -132,13 +135,13 @@ inline int parse_bool(char *str)
 }
 
 
-inline void parse_error(const char *mess)
+void parse_error(const char *mess)
 {
     fprintf(stderr,"parse error : %s\n",mess);
     exit(EXIT_FAILURE);
 }
 
-inline void quit_error(const char *mess) {
+void quit_error(const char *mess) {
     fprintf(stderr,"%s\n",mess);
     exit(EXIT_FAILURE);
 }

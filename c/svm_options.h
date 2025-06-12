@@ -10,8 +10,7 @@
 #include <omp.h>
 #endif
 
-
-typedef struct {
+struct svm_options_t{
     double *vecs;
     double *y;
     double bias;
@@ -31,7 +30,9 @@ typedef struct {
     char * out;
     char * model;
     char * data;
-} svm_options_t;
+};
+
+typedef struct svm_options_t svm_options_t;
 
 svm_options_t * svm_options_init(int argc,char **argv);
 void svm_options_free(svm_options_t* opts);

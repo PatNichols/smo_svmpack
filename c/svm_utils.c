@@ -10,7 +10,7 @@ void * Malloc(size_t n)
     void * ptr = malloc(n);
 #endif
     if (ptr) return ptr;
-    fprintf(stderr,"could not allocate %uLL bytes\n",n);
+    fprintf(stderr,"could not allocate %zu bytes\n",n);
     exit(EXIT_FAILURE);
 }
 
@@ -31,59 +31,47 @@ void * Realloc(void *ptr,size_t old_size,size_t new_size)
 }
 
 
-inline FILE *Fopen(const char *name,const char *mode) {
+FILE *Fopen(const char *name,const char *mode) {
     FILE *fp = fopen(name,mode);
     if (fp) return fp;
     fprintf(stderr,"could not open the file %s in mode %s\n",name,mode);
     exit(EXIT_FAILURE);
 }
 
-inline size_t Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
+void Fread(void *ptr,size_t osize,size_t cnt,FILE *fp)
 {
     ssize_t rd = fread(ptr,osize,cnt,fp);
     if (rd!=cnt) {
         if (feof(fp)) {
             fprintf(stderr,"end of file\n");
         }else{
-            fprintf(stderr,"error %d\n",errno);
+            fprintf(stderr,"error %s\n",strerror(errno));
         }
-        fprintf(stderr,"read only %d of %d elements\n",rd,cnt);
+        fprintf(stderr,"read only %zd of %zu elements\n",rd,cnt);
         parse_error("Fread did not read all elements");
     }
-    return rd;
 }
 
-inline size_t Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
+void Fwrite(void *ptr,size_t osize,size_t cnt,FILE *fp)
 {
     ssize_t wr = fwrite(ptr,osize,cnt,fp);
     if (wr!=cnt) {
         fprintf(stderr,"file error %d\n",ferror(fp));
         parse_error("Fwrite did not write all elements");
     }
-    return wr;
 }
 
-ssize_t Getline(char **line_ptr,size_t *line_size,FILE *fp)
+int64_t Getline(char **line_ptr,size_t *line_size,FILE *fp)
 {
-   int p;
    ssize_t n = getline(line_ptr,line_size,fp); 
-   if (n) return n;
+   if ( n >= 0) return n;
    if (feof(fp)) return -1;
-   p = errno;
-   if (p==EINVAL) {
-       fprintf(stderr,"Error in Getline line_ptr or line_size is null\n");
-   }else{
-       if (p==EOVERFLOW) {
-           fprintf(stderr,"Error in Getline overflow in read\n");
-       }else{
-           fprintf(stderr,"Error in Getline %d\n",p);
-       }
-   }
+   fprintf(stderr,"error getline failed %s\n",strerror(errno));
    exit(EXIT_FAILURE);
 }
 
 
-inline char ** tokens_init() {
+char ** tokens_init() {
     int i;
     char ** tokens = (char**)Malloc(SVM_MAX_TOKENS*sizeof(char*));
     for (i=0; i<SVM_MAX_TOKENS; ++i) 
@@ -91,7 +79,7 @@ inline char ** tokens_init() {
     return tokens;
 }
 
-inline void tokens_free(char **tokens)
+void tokens_free(char **tokens)
 {
     int i;
     for (i=SVM_MAX_TOKENS; i>0;) {
@@ -101,7 +89,7 @@ inline void tokens_free(char **tokens)
     free(tokens);
 }
 
-inline int explode_string(char *str,const char *delims,char **tokens)
+int explode_string(char *str,const char *delims,char **tokens)
 {
     char * last;
     char * ptr;
@@ -118,7 +106,7 @@ inline int explode_string(char *str,const char *delims,char **tokens)
     return cnt;
 }
 
-inline int parse_bool(char *str)
+int parse_bool(char *str)
 {
     size_t slen = strlen(str);
 
@@ -130,13 +118,13 @@ inline int parse_bool(char *str)
     return 1;
 }
 
-inline void parse_error(const char *mess)
+void parse_error(const char *mess)
 {
     fprintf(stderr,"parse error : %s\n",mess);
     exit(EXIT_FAILURE);
 }
 
-inline void quit_error(const char *mess) {
+void quit_error(const char *mess) {
     fprintf(stderr,"%s\n",mess);
     exit(EXIT_FAILURE);
 }

@@ -1,4 +1,7 @@
+#include <math.h>
+#include <omp.h>
 #include "svm_kernel_matrix.h"
+#include "svm_fun.h"
 
 double kern_powi(double x,int m)
 {
@@ -59,7 +62,7 @@ double kern_powi(double x,int m)
     return 1.e300;
 }
 
-inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
+svm_kernel_eval_t * svm_kernel_eval_init(const svm_options_t * opts)
 {
     int i;
     double *scal;
@@ -121,13 +124,13 @@ inline svm_kernel_eval_t * svm_kernel_eval_init(svm_options_t* opts)
     return eval;
 }
 
-inline void svm_kernel_eval_free(svm_kernel_eval_t * eval)
+void svm_kernel_eval_free(svm_kernel_eval_t * eval)
 {
     free(eval->scale);
     free(eval);
 }
 
-inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
+void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
 {
     int i,j;
     int nvecs = eval->nvecs;
@@ -152,7 +155,7 @@ inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
         for (i=0; i<nvecs; ++i) row[i]=s1*s[i]*kern_powi(c1*svm_dot(v1,vecs+i*nfeat,nfeat)+c2,kpow);
         return;
     case 2:
-#pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs)
+#pragma omp parallel for private(i,j,d,t,v2) shared(row,vecs) schedule(static)
         for (i=0; i<nvecs; ++i) {
             v2 = vecs + i * nfeat;
             d = 0.0;
@@ -170,7 +173,7 @@ inline void svm_kernel_eval(svm_kernel_eval_t *eval,double *row,int irow)
     }
 }
 
-inline svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
+svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
 {
     int cache_size;
     int nvecs,i;
@@ -207,7 +210,7 @@ inline svm_kernel_matrix_t * svm_kernel_matrix_init(svm_options_t* opts)
     return kmat;
 }
 
-inline void svm_kernel_matrix_get_rows(svm_kernel_matrix_t *kmat,
+void svm_kernel_matrix_get_rows(svm_kernel_matrix_t *kmat,
 int imax,int imin,double **rmax,double **rmin)
 {
     int i,imax_f,imin_f;
@@ -219,7 +222,7 @@ int imax,int imin,double **rmax,double **rmin)
     if (cache_size < nvecs) {
         imax_f = -1;
         imin_f = -1;
-#pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f)
+#pragma omp parallel for private(i) reduction(max:imax_f) reduction(max:imin_f) schedule(static)
         for (i=0; i< cache_size; ++i) {
             if (cache_index[i]==imax) imax_f = i;
             if (cache_index[i]==imin) imin_f = i;
@@ -252,7 +255,7 @@ int imax,int imin,double **rmax,double **rmin)
     }
 }
 
-inline void svm_kernel_matrix_free(svm_kernel_matrix_t *kmat)
+void svm_kernel_matrix_free(svm_kernel_matrix_t *kmat)
 {
     free(kmat->eval);
     free(kmat->cache_row);
