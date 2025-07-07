@@ -1,0 +1,2 @@
+autoscan: warning: missing AC_CHECK_HEADERS([sys/time.h]) wanted by: 
+	stopwatch.h:4

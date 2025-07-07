@@ -1,0 +1,3 @@
+/home/pnichols/codes/svm/smo_svmpack_new/c/new_dir/bld/CMakeFiles/svmtask.dir
+/home/pnichols/codes/svm/smo_svmpack_new/c/new_dir/bld/CMakeFiles/edit_cache.dir
+/home/pnichols/codes/svm/smo_svmpack_new/c/new_dir/bld/CMakeFiles/rebuild_cache.dir
