@@ -1,0 +1,5 @@
+kernel_c1 0.05
+data_file a9a
+eps 1.e-8
+cost 2.5
+

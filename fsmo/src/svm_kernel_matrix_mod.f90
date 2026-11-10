@@ -1,0 +1,190 @@
+module svm_kernel_matrix_mod
+use,intrinsic :: iso_fortran_env
+use svm_options_mod
+use svm_data_mod  
+
+  type svm_kernel_matrix_t
+     real(kind=8),dimension(:,:),pointer :: vecs
+     real(kind=8),dimension(:),allocatable :: scale
+     real(kind=8),dimension(:,:),pointer :: rows
+     real(kind=8) :: c1,c2
+     integer(kind=4),dimension(:),allocatable :: indx
+     integer(kind=4) :: last
+     integer(kind=4) :: nvecs,nfeat,cache_size
+     integer(kind=4) :: ktype,kscale,kpow         
+  contains
+     final svm_kernel_matrix_final
+     procedure :: init => svm_kernel_matrix_init
+     procedure :: get_row => svm_kernel_matrix_get_row
+  end type
+
+contains
+  subroutine svm_kernel_matrix_final(this)
+     implicit none
+     type(svm_kernel_matrix_t) :: this
+     deallocate(this%rows)
+     deallocate(this%indx)
+     deallocate(this%scale)  
+  end subroutine
+  
+  subroutine svm_kernel_matrix_init(this,opts,data)
+     implicit none
+     class(svm_kernel_matrix_t) :: this
+     class(svm_options_t) :: opts
+     class(svm_data_t),intent(in),target :: data
+     integer :: i,j
+     real(kind=8) :: sum
+          
+     this%c1 = opts%kernel_c1
+     this%c2 = opts%kernel_c2
+     this%kpow = opts%kernel_power
+     this%ktype = opts%kernel_type
+     this%kscale = opts%kernel_scale
+     this%nvecs = data%nvecs
+     this%nfeat = data%nfeat
+     this%vecs => data%vecs(1:this%nfeat,1:this%nvecs)
+     if ( opts%kernel_cache_rows > 2) then
+        this%cache_size = opts%kernel_cache_rows
+     else
+	this%cache_size = this%nvecs / 6
+     end if
+     if ( this%cache_size < 2) this%cache_size = 2
+     allocate(this%scale(this%nvecs))
+     allocate(this%indx(this%cache_size))
+     allocate(this%rows(this%nvecs,this%cache_size))
+     
+     write(error_unit,*)'SVM Kerneal Matrix'
+     write(error_unit,*)'# of vectors = ',this%nvecs
+     write(error_unit,*)'# of cached rows = ',this%cache_size
+     write(error_unit,*)'Kernel Parameters'
+     write(error_unit,*)' type = ',this%ktype,' scale = ',this%kscale
+     write(error_unit,*)' kernel coeffs = ',this%c1,' ',this%c2
+     write(error_unit,*)' kernel power  = ',this%kpow
+     write(error_unit,*)' '
+     
+     if ( (opts%kernel_type == 2) .or. (opts%kernel_scale == 0)) then 
+        do i=1,this%nvecs
+           this%scale(i) = 1.0d0
+        end do
+     else
+         do i=1,this%nvecs
+               sum = 0.0d0
+               do j=1,this%nfeat
+                  sum = sum + this%vecs(j,i) * this%vecs(j,i)
+               end do
+               this%scale(i) = sum* this%c1 + this%c2
+         end do
+         select case (this%ktype)
+         case (0)
+         	do i=1,this%nvecs
+         	   if ( this%scale(i) > 1.d-12) then
+         	        this%scale(i) = 1.d0/dsqrt(this%scale(i))
+         	   else
+                        this%scale(i) = 1.0d0          	   
+         	   end if
+         	end do
+         case (1)
+         	do i=1,this%nvecs
+         	   this%scale(i) = (this%scale(i) ** this%kpow)
+         	   if ( this%scale(i) > 1.d-12) then
+         	        this%scale(i) = 1.d0/dsqrt(this%scale(i))
+         	   else
+                        this%scale(i) = 1.0d0          	   
+         	   end if         	   
+         	end do
+         case (2)
+         	do i=1,this%nvecs
+         	   this%scale(i) = 1.0d0
+         	end do         
+         case (3)
+                do i=1,this%nvecs
+                   this%scale(i) = datanh(this%scale(i))
+         	   if ( this%scale(i) > 1.d-12) then
+         	        this%scale(i) = 1.d0/dsqrt(this%scale(i))
+         	   else
+                        this%scale(i) = 1.0d0          	   
+         	   end if
+                end do
+         end select
+     end if
+     do i=1,this%cache_size
+        this%indx(i) = -1
+     end do     
+     this%last = 1
+
+     open(unit=56,file='data_kmat.tdo',action='write',access='STREAM')
+     write(56)this%nvecs
+     write(56)this%nfeat
+     DO I=1,THIS%NVECS
+        WRITE(56)DATA%Y(I)
+     END DO
+     do i=1,this%nvecs
+        do j=1,this%nfeat
+           write(56)this%vecs(j,i)
+        end do
+     end do
+     close(56)
+  end subroutine
+
+  subroutine svm_kernel_matrix_get_row(this,ix,row)
+     implicit none
+     class(svm_kernel_matrix_t) :: this
+     integer,intent(in) :: ix
+     real(kind=8),dimension(:),pointer,intent(out) :: row
+     integer :: im,i,j
+     real(kind=8) :: sum,t,scal_x
+          
+     im = -1
+     do i=1,this%cache_size
+        if ( this%indx(i) == ix) then
+           im = i
+           exit
+        end if
+     end do
+     if (im /= -1) then
+         row => this%rows(1:this%nvecs,im)
+     else
+         row => this%rows(1:this%nvecs,this%last)
+         this%last = this%last + 1
+         if ( this%last > this%cache_size) this%last = 1
+         scal_x = this%scale(ix)
+         if ( this%ktype /= 2) then
+            do i=1,this%nvecs
+               sum = 0.0d0
+               do j=1,this%nfeat
+                  sum = sum + this%vecs(j,i) * this%vecs(j,ix)
+               end do
+               row(i) = sum * this%c1 + this%c2
+            end do
+         else
+            do i=1,this%nvecs
+               sum = 0.0d0
+               do j=1,this%nfeat
+		  t = this%vecs(j,i) - this%vecs(j,ix)
+                  t = t * t
+                  sum = sum + t
+               end do
+               row(i) = -sum * this%c1
+            end do
+         end if
+         select case (this%ktype)
+         case (0)
+         	do i=1,this%nvecs
+         	   row(i) = row(i) * this%scale(i) * scal_x
+         	end do
+         case (1)
+         	do i=1,this%nvecs
+         	   row(i) = (row(i) ** this%kpow) * this%scale(i) * scal_x
+         	end do
+         case (2)
+         	do i=1,this%nvecs
+         	   row(i) = dexp(row(i))
+         	end do         
+         case (3)
+                do i=1,this%nvecs
+                   row(i) = datanh(row(i)) * this%scale(i) * scal_x
+                end do
+         end select
+     end if
+  end subroutine
+end module

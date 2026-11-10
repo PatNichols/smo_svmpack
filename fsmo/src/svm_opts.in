@@ -1,0 +1,16 @@
+kernel_c1 1.0d0
+kernel_c2 0.0d0
+kernel_power 1
+kernel_type 2
+kernel_scale 1
+kernel_cache_rows 0
+max_its 0
+model_file svm_model
+data_file svm_data
+output_file svm_out
+nthreads 1
+eps 1.e-12
+cost 10.0
+
+
+
